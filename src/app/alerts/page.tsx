@@ -1,0 +1,58 @@
+import { Filter, ShieldAlert } from "lucide-react";
+import { AppShell } from "@/components/dashboard/app-shell";
+import { SignalFeed } from "@/components/dashboard/signal-feed";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { signalStream } from "@/data/mock-intelligence";
+
+const filters = ["All", "Critical", "Pricing", "Hiring", "Sentiment", "Competitors"];
+
+export default function AlertsPage() {
+  return (
+    <AppShell>
+      <section className="mb-8">
+        <Card className="p-8" glow>
+          <Badge variant="risk">Realtime enterprise alerts</Badge>
+          <div className="mt-5 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+            <div>
+              <h1 className="text-4xl font-semibold tracking-tight text-white md:text-6xl">
+                Alert center
+              </h1>
+              <p className="mt-4 max-w-2xl text-white/55">
+                Prioritized risk notifications from competitor launches, pricing changes,
+                hiring spikes, sentiment shifts, and live market movement.
+              </p>
+            </div>
+            <Button variant="ghost">
+              <Filter className="h-4 w-4" /> Configure filters
+            </Button>
+          </div>
+          <div className="mt-8 flex flex-wrap gap-3">
+            {filters.map((filter) => (
+              <button
+                key={filter}
+                className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/60 transition hover:border-cyan-200/30 hover:text-white"
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+        </Card>
+      </section>
+
+      <section className="mb-8 grid gap-5 md:grid-cols-3">
+        {signalStream.slice(0, 3).map((signal) => (
+          <Card key={signal.id} className="p-5" glow>
+            <ShieldAlert className="h-6 w-6 text-rose-200" />
+            <p className="mt-5 text-sm uppercase tracking-[0.24em] text-white/35">{signal.category}</p>
+            <h3 className="mt-2 text-xl font-semibold text-white">{signal.title}</h3>
+            <p className="mt-3 text-sm leading-6 text-white/55">{signal.summary}</p>
+          </Card>
+        ))}
+      </section>
+
+      <SignalFeed />
+    </AppShell>
+  );
+}
