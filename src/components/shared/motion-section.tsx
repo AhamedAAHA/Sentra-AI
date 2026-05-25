@@ -1,14 +1,15 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { PropsWithChildren } from "react";
+import type { ComponentPropsWithoutRef, PropsWithChildren } from "react";
 import { cn } from "@/lib/utils";
 
 export function MotionSection({
   children,
   className,
   delay = 0,
-}: PropsWithChildren<{ className?: string; delay?: number }>) {
+  ...props
+}: PropsWithChildren<ComponentPropsWithoutRef<"section"> & { delay?: number }>) {
   return (
     <motion.section
       className={cn(className)}
@@ -16,6 +17,7 @@ export function MotionSection({
       whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
       viewport={{ once: true, margin: "-80px" }}
       transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1], delay }}
+      {...props}
     >
       {children}
     </motion.section>
