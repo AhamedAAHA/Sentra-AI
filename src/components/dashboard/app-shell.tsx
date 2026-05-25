@@ -10,6 +10,7 @@ import {
   Radar,
   Settings,
 } from "lucide-react";
+import { toast } from "sonner";
 import { CommandPalette } from "@/components/shared/command-palette";
 import { ParticleField } from "@/components/shared/particle-field";
 
@@ -58,10 +59,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-30 border-b border-white/10 bg-sentra-ink/55 px-4 py-4 backdrop-blur-2xl md:px-8">
           <div className="flex items-center gap-4">
             <CommandPalette />
-            <button className="hidden rounded-2xl border border-white/10 bg-white/[0.06] p-3 text-white/60 transition hover:text-white md:block">
+            <Link
+              href="/alerts"
+              className="hidden rounded-2xl border border-white/10 bg-white/[0.06] p-3 text-white/60 transition hover:text-white md:block"
+              aria-label="Open alerts"
+            >
               <BellRing className="h-5 w-5" />
-            </button>
-            <button className="hidden rounded-2xl border border-white/10 bg-white/[0.06] p-3 text-white/60 transition hover:text-white md:block">
+            </Link>
+            <button
+              className="hidden rounded-2xl border border-white/10 bg-white/[0.06] p-3 text-white/60 transition hover:text-white md:block"
+              aria-label="Open settings"
+              onClick={() =>
+                toast.message("Workspace settings", {
+                  description: "Demo mode: integrations are configured through .env.local.",
+                })
+              }
+            >
               <Settings className="h-5 w-5" />
             </button>
           </div>

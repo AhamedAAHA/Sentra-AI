@@ -2,19 +2,36 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import { Bot, LineChart, Radar, Search, ShieldAlert, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const actions = [
-  { icon: Bot, label: "Ask Sentra to analyze Tesla competitors", hint: "AI chat" },
-  { icon: Radar, label: "Track AI startups in Singapore", hint: "Monitor" },
-  { icon: ShieldAlert, label: "Open critical risk alerts", hint: "Alerts" },
-  { icon: LineChart, label: "Summarize current market trends", hint: "Briefing" },
-  { icon: Sparkles, label: "Generate daily intelligence briefing", hint: "AI" },
+  {
+    icon: Bot,
+    label: "Ask Sentra to analyze Tesla competitors",
+    hint: "AI chat",
+    href: "/chat?prompt=Analyze%20Tesla%20competitors",
+  },
+  {
+    icon: Radar,
+    label: "Track AI startups in Singapore",
+    hint: "Monitor",
+    href: "/chat?prompt=Track%20AI%20startups%20in%20Singapore",
+  },
+  { icon: ShieldAlert, label: "Open critical risk alerts", hint: "Alerts", href: "/alerts?filter=Critical" },
+  { icon: LineChart, label: "Summarize current market trends", hint: "Briefing", href: "/dashboard#market" },
+  {
+    icon: Sparkles,
+    label: "Generate daily intelligence briefing",
+    hint: "AI",
+    href: "/chat?prompt=Generate%20daily%20intelligence%20briefing",
+  },
 ];
 
 export function CommandPalette({ className }: { className?: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -68,7 +85,10 @@ export function CommandPalette({ className }: { className?: string }) {
                     <Command.Item
                       key={action.label}
                       className="flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-3 text-sm text-white/80 data-[selected=true]:bg-white/10 data-[selected=true]:text-white"
-                      onSelect={() => setOpen(false)}
+                      onSelect={() => {
+                        setOpen(false);
+                        router.push(action.href);
+                      }}
                     >
                       <action.icon className="h-4 w-4 text-sentra-cyan" />
                       <span>{action.label}</span>

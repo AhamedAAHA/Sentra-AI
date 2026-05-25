@@ -39,6 +39,7 @@ enable:
 
 ```bash
 OPENAI_API_KEY=
+SENTRA_TIMEZONE=Asia/Colombo
 
 BRIGHT_DATA_API_KEY=
 BRIGHT_DATA_SERP_ENDPOINT=
@@ -65,7 +66,7 @@ remain functional.
 
 ## API Routes
 
-- `POST /api/chat` - combines Bright Data evidence and OpenAI analysis for chat
+- `POST /api/chat` - answers chat questions using OpenAI live web search with citations
 - `GET|POST /api/intelligence` - returns risks, opportunities, recommendations,
   confidence score, and live signals
 - `POST /api/bright-data` - reusable Bright Data collection endpoint

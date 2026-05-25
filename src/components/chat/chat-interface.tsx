@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import { motion } from "framer-motion";
-import { Bot, Mic2, Send, Sparkles, Volume2 } from "lucide-react";
+import { Bot, Mic2, MicOff, Send, Sparkles, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { AiOrb } from "@/components/shared/ai-orb";
@@ -42,14 +43,33 @@ function AssistantMessage({ content, animated }: { content: string; animated?: b
 }
 
 export function ChatInterface() {
+  const searchParams = useSearchParams();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [listening, setListening] = useState(false);
+  const handledPromptRef = useRef<string | null>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const speechBaseInputRef = useRef("");
   const lastAssistantId = useMemo(
     () => [...messages].reverse().find((message) => message.role === "assistant")?.id,
     [messages],
   );
+
+  useEffect(() => {
+    const prompt = searchParams.get("prompt");
+    if (!prompt || handledPromptRef.current === prompt) return;
+
+    handledPromptRef.current = prompt;
+    setInput(prompt);
+  }, [searchParams]);
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+    };
+  }, []);
 
   async function sendMessage(nextInput = input) {
     const trimmed = nextInput.trim();
@@ -106,6 +126,11 @@ export function ChatInterface() {
         body: JSON.stringify({ text: content }),
       });
 
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? "ElevenLabs rejected the voice request.");
+      }
+
       if (response.headers.get("content-type")?.includes("audio")) {
         const blob = await response.blob();
         const audio = new Audio(URL.createObjectURL(blob));
@@ -117,9 +142,68 @@ export function ChatInterface() {
         });
         window.setTimeout(() => setSpeaking(false), 1800);
       }
-    } catch {
+    } catch (error) {
       setSpeaking(false);
-      toast.error("Voice playback failed.");
+      toast.error("Voice playback failed.", {
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    }
+  }
+
+  function toggleSpeechInput() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+
+    const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+    if (!Recognition) {
+      toast.error("Speech input is not supported in this browser.", {
+        description: "Try Chrome or Edge and allow microphone permission.",
+      });
+      return;
+    }
+
+    const recognition = new Recognition();
+    recognitionRef.current = recognition;
+    speechBaseInputRef.current = input.trim();
+    recognition.lang = "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event) => {
+      let transcript = "";
+      for (let index = 0; index < event.results.length; index += 1) {
+        transcript += event.results[index][0]?.transcript ?? "";
+      }
+
+      const separator = speechBaseInputRef.current && transcript.trim() ? " " : "";
+      setInput(`${speechBaseInputRef.current}${separator}${transcript}`.trimStart());
+    };
+
+    recognition.onerror = (event) => {
+      setListening(false);
+      toast.error("Could not capture speech.", {
+        description: event.message || `Speech recognition error: ${event.error}`,
+      });
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+    };
+
+    try {
+      setListening(true);
+      recognition.start();
+      toast.message("Listening...", {
+        description: "Speak your intelligence request, then press send.",
+      });
+    } catch (error) {
+      setListening(false);
+      toast.error("Could not start speech input.", {
+        description: error instanceof Error ? error.message : "Please check microphone access.",
+      });
     }
   }
 
@@ -210,6 +294,16 @@ export function ChatInterface() {
                 placeholder="Ask Sentra to analyze competitors, monitor a market, or brief leadership..."
                 className="min-h-16"
               />
+              <Button
+                type="button"
+                variant={listening ? "neon" : "ghost"}
+                size="icon"
+                className="h-16 w-16 shrink-0"
+                onClick={toggleSpeechInput}
+                aria-label={listening ? "Stop voice input" : "Speak prompt"}
+              >
+                {listening ? <MicOff className="h-5 w-5" /> : <Mic2 className="h-5 w-5" />}
+              </Button>
               <Button variant="neon" size="icon" className="h-16 w-16 shrink-0" onClick={() => sendMessage()}>
                 <Send className="h-5 w-5" />
               </Button>
@@ -222,10 +316,25 @@ export function ChatInterface() {
             <AiOrb speaking={speaking} size="md" className="mx-auto" />
             <h3 className="mt-6 text-xl font-semibold text-white">Voice analyst</h3>
             <p className="mt-2 text-sm leading-6 text-white/55">
-              Click the voice button on an AI response to hear the configured ElevenLabs analyst
-              voice. Restart the dev server after changing voice settings.
+              Use the microphone beside the prompt box to speak your request, or click the voice
+              button on an AI response to hear the ElevenLabs analyst voice.
             </p>
-            <Button variant="ghost" className="mt-5">
+            <Button
+              variant="ghost"
+              className="mt-5"
+              onClick={() => {
+                const latestAssistant = [...messages]
+                  .reverse()
+                  .find((message) => message.role === "assistant");
+
+                if (!latestAssistant) {
+                  toast.message("No analyst response available yet.");
+                  return;
+                }
+
+                playVoice(latestAssistant.content);
+              }}
+            >
               <Mic2 className="h-4 w-4" /> Voice controls
             </Button>
           </Card>

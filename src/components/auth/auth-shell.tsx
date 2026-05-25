@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Code2, Mail, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 import { AiOrb } from "@/components/shared/ai-orb";
 import { ParticleField } from "@/components/shared/particle-field";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +17,15 @@ type AuthShellProps = {
 };
 
 export function AuthShell({ mode }: AuthShellProps) {
+  const router = useRouter();
   const isSignUp = mode === "sign-up";
+
+  function enterDemoWorkspace(message: string) {
+    toast.success(message, {
+      description: "Demo authentication is enabled for the hackathon build.",
+    });
+    router.push("/dashboard");
+  }
 
   return (
     <main className="min-h-screen overflow-hidden">
@@ -62,10 +72,20 @@ export function AuthShell({ mode }: AuthShellProps) {
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Button variant="ghost" className="rounded-2xl">
+              <Button
+                type="button"
+                variant="ghost"
+                className="rounded-2xl"
+                onClick={() => enterDemoWorkspace("GitHub demo sign-in complete")}
+              >
                 <Code2 className="h-4 w-4" /> GitHub
               </Button>
-              <Button variant="ghost" className="rounded-2xl">
+              <Button
+                type="button"
+                variant="ghost"
+                className="rounded-2xl"
+                onClick={() => enterDemoWorkspace("Google demo sign-in complete")}
+              >
                 <Mail className="h-4 w-4" /> Google
               </Button>
             </div>
@@ -74,7 +94,13 @@ export function AuthShell({ mode }: AuthShellProps) {
               <span className="text-xs uppercase tracking-[0.24em] text-white/35">or</span>
               <div className="h-px flex-1 bg-white/10" />
             </div>
-            <form className="grid gap-4">
+            <form
+              className="grid gap-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                enterDemoWorkspace(isSignUp ? "Workspace created" : "Signed in to Sentra OS");
+              }}
+            >
               {isSignUp && <Input placeholder="Company name" />}
               <Input placeholder="Work email" type="email" />
               <Input placeholder="Password" type="password" />

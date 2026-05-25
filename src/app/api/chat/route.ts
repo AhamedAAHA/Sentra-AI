@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { collectWebIntelligence } from "@/services/bright-data";
 import { generateChatResponse } from "@/services/openai";
 
 export const runtime = "nodejs";
@@ -13,12 +12,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
 
-    const intelligence = await collectWebIntelligence({ query: message, mode: "serp" });
-    const response = await generateChatResponse(message, intelligence.evidence);
+    const response = await generateChatResponse(message);
 
     return NextResponse.json({
       message: response,
-      provider: intelligence.provider,
+      provider: "openai-web-search",
     });
   } catch (error) {
     console.error("Chat route failed", error);

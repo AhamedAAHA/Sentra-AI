@@ -1,4 +1,8 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import { Filter, ShieldAlert } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { SignalFeed } from "@/components/dashboard/signal-feed";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +13,31 @@ import { signalStream } from "@/data/mock-intelligence";
 const filters = ["All", "Critical", "Pricing", "Hiring", "Sentiment", "Competitors"];
 
 export default function AlertsPage() {
+  const [activeFilter, setActiveFilter] = useState(() => {
+    if (typeof window === "undefined") return "All";
+
+    const filter = new URLSearchParams(window.location.search).get("filter");
+    return filter && filters.includes(filter) ? filter : "All";
+  });
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+
+  const filteredSignals = useMemo(() => {
+    if (activeFilter === "All") return signalStream;
+    if (activeFilter === "Critical") {
+      return signalStream.filter((signal) => signal.severity === "critical");
+    }
+    if (activeFilter === "Competitors") {
+      return signalStream.filter((signal) => signal.category === "competitor");
+    }
+
+    return signalStream.filter((signal) => signal.category === activeFilter.toLowerCase());
+  }, [activeFilter]);
+
+  function updateFilter(filter: string) {
+    setActiveFilter(filter);
+    window.history.replaceState(null, "", filter === "All" ? "/alerts" : `/alerts?filter=${filter}`);
+  }
+
   return (
     <AppShell>
       <section className="mb-8">
@@ -24,7 +53,15 @@ export default function AlertsPage() {
                 hiring spikes, sentiment shifts, and live market movement.
               </p>
             </div>
-            <Button variant="ghost">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowFilterPanel((value) => !value);
+                toast.message("Alert filters ready", {
+                  description: "Choose a severity or signal category below.",
+                });
+              }}
+            >
               <Filter className="h-4 w-4" /> Configure filters
             </Button>
           </div>
@@ -32,17 +69,29 @@ export default function AlertsPage() {
             {filters.map((filter) => (
               <button
                 key={filter}
-                className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/60 transition hover:border-cyan-200/30 hover:text-white"
+                className={
+                  activeFilter === filter
+                    ? "rounded-full border border-cyan-200/40 bg-cyan-300/15 px-4 py-2 text-sm text-cyan-100 transition"
+                    : "rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm text-white/60 transition hover:border-cyan-200/30 hover:text-white"
+                }
+                onClick={() => updateFilter(filter)}
               >
                 {filter}
               </button>
             ))}
           </div>
+          {showFilterPanel && (
+            <div className="mt-5 rounded-3xl border border-white/10 bg-white/[0.045] p-4 text-sm text-white/55">
+              Showing <span className="font-semibold text-white">{filteredSignals.length}</span> matching
+              alert{filteredSignals.length === 1 ? "" : "s"} for{" "}
+              <span className="font-semibold text-cyan-100">{activeFilter}</span>.
+            </div>
+          )}
         </Card>
       </section>
 
       <section className="mb-8 grid gap-5 md:grid-cols-3">
-        {signalStream.slice(0, 3).map((signal) => (
+        {filteredSignals.slice(0, 3).map((signal) => (
           <Card key={signal.id} className="p-5" glow>
             <ShieldAlert className="h-6 w-6 text-rose-200" />
             <p className="mt-5 text-sm uppercase tracking-[0.24em] text-white/35">{signal.category}</p>
@@ -52,7 +101,7 @@ export default function AlertsPage() {
         ))}
       </section>
 
-      <SignalFeed />
+      <SignalFeed signals={filteredSignals} />
     </AppShell>
   );
 }

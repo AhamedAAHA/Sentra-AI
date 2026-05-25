@@ -23,7 +23,7 @@ const categoryIcon: Record<IntelligenceSignal["category"], typeof AlertTriangle>
   sentiment: AlertTriangle,
 };
 
-export function SignalFeed() {
+export function SignalFeed({ signals = signalStream }: { signals?: IntelligenceSignal[] }) {
   return (
     <Card id="signals" className="p-6" glow>
       <div className="mb-6 flex items-center justify-between">
@@ -37,7 +37,7 @@ export function SignalFeed() {
         </span>
       </div>
       <div className="grid gap-3">
-        {signalStream.map((signal, index) => {
+        {signals.map((signal, index) => {
           const Icon = categoryIcon[signal.category];
           return (
             <motion.div
@@ -67,6 +67,11 @@ export function SignalFeed() {
             </motion.div>
           );
         })}
+        {signals.length === 0 && (
+          <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.03] p-8 text-center text-sm text-white/45">
+            No matching signals for this filter.
+          </div>
+        )}
       </div>
     </Card>
   );

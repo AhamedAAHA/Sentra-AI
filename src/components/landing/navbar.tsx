@@ -3,7 +3,12 @@ import { BrainCircuit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function Navbar() {
-  const links = ["Platform", "Intelligence", "Alerts", "Voice AI"];
+  const links = [
+    { label: "Platform", href: "#platform" },
+    { label: "Intelligence", href: "#intelligence" },
+    { label: "Alerts", href: "/alerts" },
+    { label: "Voice AI", href: "#voice-ai" },
+  ];
 
   return (
     <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-sentra-ink/55 backdrop-blur-2xl">
@@ -16,8 +21,8 @@ export function Navbar() {
         </Link>
         <nav className="hidden items-center gap-8 text-sm text-white/60 md:flex">
           {links.map((link) => (
-            <a key={link} href={`#${link.toLowerCase().replaceAll(" ", "-")}`} className="transition hover:text-white">
-              {link}
+            <a key={link.label} href={link.href} className="transition hover:text-white">
+              {link.label}
             </a>
           ))}
         </nav>

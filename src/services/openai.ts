@@ -12,6 +12,25 @@ Return concise boardroom-ready intelligence with:
 - confidence score
 Use a premium enterprise tone and never invent exact sources that were not provided.`;
 
+const CHAT_PROMPT = `You are Sentra AI, a helpful live-web analyst.
+Answer the user's latest question directly and concisely.
+Search the live web before answering every request. For current facts, officeholders, news, prices, or other time-sensitive claims, rely on the newest reliable sources and mention a specific date when useful.
+For current officeholders, search for the latest election, appointment, or swearing-in record and prefer the newest official government source available. Do not treat an older government page as current if a newer official record supersedes it.
+Do not volunteer an "as of today" date unless the user requests it; cite the source's dated event instead.
+Do not force simple factual questions into an enterprise intelligence brief.
+Do not reuse unrelated demo intelligence or repeat a previous answer unless the user asks about it.
+Use markdown and keep the answer readable.`;
+
+function getFreshnessDate() {
+  const timeZone = process.env.SENTRA_TIMEZONE || "Asia/Colombo";
+  const date = new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "long",
+    timeZone,
+  }).format(new Date());
+
+  return { date, timeZone };
+}
+
 function getOpenAIClient() {
   if (!process.env.OPENAI_API_KEY) return null;
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -52,13 +71,46 @@ export async function generateEnterpriseAnalysis(
   };
 }
 
-export async function generateChatResponse(message: string, webEvidence: string) {
-  const analysis = await generateEnterpriseAnalysis(message, webEvidence);
-  return `## Enterprise Intelligence Brief\n\n${analysis.summary}\n\n**Risks**\n${analysis.risks
-    .map((risk) => `- ${risk}`)
-    .join("\n")}\n\n**Opportunities**\n${analysis.opportunities
-    .map((opportunity) => `- ${opportunity}`)
-    .join("\n")}\n\n**Recommended actions**\n${analysis.recommendations
-    .map((recommendation) => `- ${recommendation}`)
-    .join("\n")}\n\nConfidence score: **${Math.round(analysis.confidenceScore * 100)}%**`;
+export async function generateChatResponse(message: string) {
+  const client = getOpenAIClient();
+  if (!client) {
+    throw new Error("Configure OPENAI_API_KEY to use live chat answers.");
+  }
+
+  const freshnessDate = getFreshnessDate();
+  const response = await client.responses.create({
+    model: process.env.OPENAI_CHAT_MODEL || "gpt-5.5",
+    instructions: `${CHAT_PROMPT}\nUse ${freshnessDate.date} (${freshnessDate.timeZone}) as the current date when resolving which source is latest.`,
+    input: message,
+    tools: [{ type: "web_search", search_context_size: "medium" }],
+    tool_choice: "required",
+    include: ["web_search_call.action.sources"],
+    store: false,
+  });
+
+  const text = response.output_text.trim();
+  if (!text) {
+    throw new Error("Live search returned an empty answer.");
+  }
+
+  const citations = response.output.flatMap((item) =>
+    item.type === "message"
+      ? item.content.flatMap((content) =>
+          content.type === "output_text"
+            ? content.annotations.filter((annotation) => annotation.type === "url_citation")
+            : [],
+        )
+      : [],
+  );
+  const sources = Array.from(
+    new Map(citations.map((citation) => [citation.url, citation.title || citation.url])).entries(),
+  );
+
+  if (!sources.length) {
+    return text;
+  }
+
+  return `${text}\n\n**Sources**\n${sources
+    .map(([url, title]) => `- [${title}](${url})`)
+    .join("\n")}`;
 }

@@ -1,5 +1,16 @@
 const ELEVENLABS_BASE_URL = "https://api.elevenlabs.io/v1/text-to-speech";
 
+export class ElevenLabsError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public details?: unknown,
+  ) {
+    super(message);
+    this.name = "ElevenLabsError";
+  }
+}
+
 export async function synthesizeSpeech(text: string) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   const voiceId = process.env.ELEVENLABS_VOICE_ID;
@@ -28,8 +39,29 @@ export async function synthesizeSpeech(text: string) {
   });
 
   if (!response.ok) {
-    throw new Error(`ElevenLabs request failed: ${response.status}`);
+    const details = await response
+      .json()
+      .catch(() => response.text())
+      .catch(() => undefined);
+
+    throw new ElevenLabsError(
+      getElevenLabsErrorMessage(details) ?? `ElevenLabs request failed: ${response.status}`,
+      response.status,
+      details,
+    );
   }
 
   return response.arrayBuffer();
+}
+
+function getElevenLabsErrorMessage(details: unknown) {
+  if (!details || typeof details !== "object") return null;
+
+  const detail = "detail" in details ? details.detail : undefined;
+  if (typeof detail === "string") return detail;
+  if (detail && typeof detail === "object" && "message" in detail) {
+    return typeof detail.message === "string" ? detail.message : null;
+  }
+
+  return null;
 }
