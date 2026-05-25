@@ -4,7 +4,7 @@ export async function synthesizeSpeech(text: string) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   const voiceId = process.env.ELEVENLABS_VOICE_ID;
 
-  if (!apiKey || !voiceId) {
+  if (!apiKey || apiKey.includes("your_elevenlabs_api_key_here") || !voiceId) {
     return null;
   }
 
