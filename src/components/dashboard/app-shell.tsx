@@ -43,8 +43,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <main className="min-h-screen">
       <ParticleField />
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-white/10 bg-sentra-ink/70 p-5 backdrop-blur-2xl lg:block">
-        <Link href="/" className="flex items-center gap-3 px-2 py-3 text-white">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-white/10 bg-sentra-ink/70 p-5 backdrop-blur-2xl lg:flex">
+        <Link href="/" className="flex shrink-0 items-center gap-3 px-2 py-3 text-white">
           <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-sentra-cyan to-sentra-violet shadow-glow">
             <BrainCircuit className="h-5 w-5" />
           </span>
@@ -53,22 +53,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="text-xs text-white/40">Enterprise OS</span>
           </span>
         </Link>
-        <nav className="mt-10 grid gap-2">
+        <nav className="mt-8 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto overscroll-contain pr-1">
           {nav.map((item) => (
             <Link
               key={item.label}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-white/58 transition hover:bg-white/[0.07] hover:text-white",
+                "flex min-w-0 items-center gap-3 rounded-2xl px-4 py-3 text-sm text-white/58 transition hover:bg-white/[0.07] hover:text-white",
                 isActive(item.href) && "bg-white/[0.08] text-white",
               )}
             >
-              <item.icon className="h-4 w-4 text-sentra-cyan" />
-              {item.label}
+              <item.icon className="h-4 w-4 shrink-0 text-sentra-cyan" />
+              <span className="min-w-0 truncate">{item.label}</span>
             </Link>
           ))}
         </nav>
-        <div className="absolute inset-x-5 bottom-5 rounded-3xl border border-white/10 bg-white/[0.05] p-4">
+        <div className="mt-5 shrink-0 rounded-3xl border border-white/10 bg-white/[0.05] p-4">
           <p className="text-sm font-medium text-white">Bright Data pipeline</p>
           <p className="mt-1 text-xs leading-5 text-white/45">
             SERP + Web Unlocker feed live briefings, chat, and monitor checks.
