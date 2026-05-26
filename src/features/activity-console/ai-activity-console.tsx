@@ -182,6 +182,7 @@ export function IntelligencePipelineMonitor({ health, running }: { health?: Pipe
     ["EVENTS", String(health?.events ?? 0)],
     ["SOURCES", `${health?.completedSources ?? 0}/${(health?.activeSources ?? 0) + (health?.completedSources ?? 0)}`],
     ["LATENCY", health?.apiLatencyMs !== undefined ? `${health.apiLatencyMs}ms` : "--"],
+    ["ELAPSED", health ? `${(health.elapsedMs / 1000).toFixed(1)}s` : "--"],
   ];
 
   return (
@@ -191,7 +192,7 @@ export function IntelligencePipelineMonitor({ health, running }: { health?: Pipe
       </p>
       <div className="grid grid-cols-2 gap-2">
         {cards.map(([label, value]) => (
-          <div key={label} className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
+          <div key={label} className={cn("rounded-xl border border-white/[0.06] bg-white/[0.03] p-3", label === "ELAPSED" && "col-span-2")}>
             <p className="text-[9px] tracking-[0.18em] text-white/34">{label}</p>
             <p className="mt-2 font-mono text-sm text-cyan-100">{value}</p>
           </div>
@@ -225,8 +226,8 @@ function ThoughtStream({ thoughts, running }: { thoughts: ReasoningStage[]; runn
       </div>
       <p className="mt-3 text-[11px] leading-5 text-white/38">Operational findings and final reasoning summaries; raw chain-of-thought is not exposed.</p>
       <div className="mt-4 grid max-h-56 gap-2 overflow-auto">
-        {thoughts.length ? thoughts.map((thought) => (
-          <motion.div key={`${thought.stage}-${thought.finding}`} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-white/[0.06] bg-black/15 p-3">
+        {thoughts.length ? thoughts.map((thought, index) => (
+          <motion.div key={`${thought.stage}-${thought.finding}-${index}`} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-white/[0.06] bg-black/15 p-3">
             <div className="flex justify-between text-[10px] uppercase text-violet-100/62">
               <span>{thought.stage}</span><span>{thought.confidence}%</span>
             </div>

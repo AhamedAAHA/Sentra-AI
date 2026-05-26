@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   BellRing,
   Bot,
   BrainCircuit,
+  Camera,
   ScanSearch,
   LayoutDashboard,
   LineChart,
@@ -22,6 +23,7 @@ const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/chat", label: "AI Chat", icon: Bot },
   { href: "/analyst", label: "AI Analyst", icon: ScanSearch },
+  { href: "/analyst?mode=vision", label: "Visual Forensics", icon: Camera },
   { href: "/alerts", label: "Alerts", icon: BellRing },
   { href: "/settings", label: "Settings", icon: Settings },
   { href: "/dashboard#market", label: "Market Intel", icon: LineChart },
@@ -30,7 +32,13 @@ const nav = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isActive = (href: string) => pathname === href.split("#")[0];
+  const searchParams = useSearchParams();
+  const analystMode = searchParams.get("mode");
+  const isActive = (href: string) => {
+    if (href === "/analyst") return pathname === "/analyst" && analystMode !== "vision";
+    if (href === "/analyst?mode=vision") return pathname === "/analyst" && analystMode === "vision";
+    return pathname === href;
+  };
 
   return (
     <main className="min-h-screen">
