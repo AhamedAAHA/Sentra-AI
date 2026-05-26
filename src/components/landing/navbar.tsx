@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 export function Navbar() {
   const links = [
     { label: "Platform", href: "#platform" },
+    { label: "Our Services", href: "/services" },
     { label: "Intelligence", href: "#intelligence" },
-    { label: "Alerts", href: "/alerts" },
+    { label: "Alerts", href: "/services" },
     { label: "Voice AI", href: "#voice-ai" },
   ];
 
@@ -20,15 +21,21 @@ export function Navbar() {
           <span className="text-lg font-semibold tracking-tight text-white">Sentra AI</span>
         </Link>
         <nav className="hidden items-center gap-8 text-sm text-white/60 md:flex">
-          {links.map((link) => (
-            <a key={link.label} href={link.href} className="transition hover:text-white">
-              {link.label}
-            </a>
-          ))}
+          {links.map((link) =>
+            link.href.startsWith("/") ? (
+              <Link key={link.label} href={link.href} className="transition hover:text-white">
+                {link.label}
+              </Link>
+            ) : (
+              <a key={link.label} href={link.href} className="transition hover:text-white">
+                {link.label}
+              </a>
+            ),
+          )}
         </nav>
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" className="hidden sm:inline-flex">
-            <Link href="/sign-in">Sign in</Link>
+            <Link href="/sign-up">Register</Link>
           </Button>
           <Button asChild variant="neon">
             <Link href="/dashboard">Launch OS</Link>

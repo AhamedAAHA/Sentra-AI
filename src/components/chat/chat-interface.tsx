@@ -140,14 +140,6 @@ export function ChatInterface() {
   }, []);
 
   useEffect(() => {
-    const prompt = searchParams.get("prompt");
-    if (!prompt || handledPromptRef.current === prompt) return;
-
-    handledPromptRef.current = prompt;
-    setInput(prompt);
-  }, [searchParams]);
-
-  useEffect(() => {
     window.addEventListener("pagehide", resetVoicePlayback);
 
     return () => {
@@ -182,7 +174,7 @@ export function ChatInterface() {
   }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
   }, [messages, loading]);
 
   async function sendMessage(nextInput = input) {
@@ -238,6 +230,15 @@ export function ChatInterface() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    const prompt = searchParams.get("prompt");
+    if (!prompt || handledPromptRef.current === prompt) return;
+
+    handledPromptRef.current = prompt;
+    void sendMessage(prompt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per unique prompt URL
+  }, [searchParams]);
 
   async function playVoice(content: string, options?: { automatic?: boolean }) {
     if (speaking && currentVoiceTextRef.current === content) {

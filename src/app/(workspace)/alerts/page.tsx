@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Filter, ShieldAlert } from "lucide-react";
 import { MonitorCenter } from "@/components/dashboard/monitor-center";
 import { toast } from "sonner";
@@ -12,14 +13,14 @@ import { signalStream } from "@/data/mock-intelligence";
 
 const filters = ["All", "Critical", "Pricing", "Hiring", "Sentiment", "Competitors"];
 
-export default function AlertsPage() {
-  const [activeFilter, setActiveFilter] = useState(() => {
-    if (typeof window === "undefined") return "All";
-
-    const filter = new URLSearchParams(window.location.search).get("filter");
-    return filter && filters.includes(filter) ? filter : "All";
-  });
+function AlertsPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+
+  const filterParam = searchParams.get("filter");
+  const activeFilter =
+    filterParam && filters.includes(filterParam) ? filterParam : "All";
 
   const filteredSignals = useMemo(() => {
     if (activeFilter === "All") return signalStream;
@@ -34,8 +35,7 @@ export default function AlertsPage() {
   }, [activeFilter]);
 
   function updateFilter(filter: string) {
-    setActiveFilter(filter);
-    window.history.replaceState(null, "", filter === "All" ? "/alerts" : `/alerts?filter=${filter}`);
+    router.replace(filter === "All" ? "/alerts" : `/alerts?filter=${filter}`, { scroll: false });
   }
 
   return (
@@ -105,5 +105,13 @@ export default function AlertsPage() {
 
       <SignalFeed signals={filteredSignals} />
     </>
+  );
+}
+
+export default function AlertsPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-white/50">Loading alerts…</p>}>
+      <AlertsPageContent />
+    </Suspense>
   );
 }

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/auth/session";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { analyzeImageInvestigation } from "@/services/image-analysis";
 import type { ImageFileEvidence } from "@/types/image-intelligence";
 
@@ -26,6 +28,14 @@ async function evidenceFromFile(file: File) {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireApiUser();
+  if ("error" in auth) return auth.error;
+
+  const limited = await checkRateLimit(auth.user.id, "intelligence");
+  if (!limited.allowed) {
+    return NextResponse.json({ error: limited.message }, { status: 429 });
+  }
+
   try {
     const formData = await request.formData();
     const prompt = formData.get("prompt");

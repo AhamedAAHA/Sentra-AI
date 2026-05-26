@@ -77,28 +77,7 @@ export async function GET() {
       }
     }
 
-    const limited = await checkRateLimit(auth.user.id, "intelligence");
-    if (!limited.allowed) {
-      return NextResponse.json({ error: limited.message }, { status: 429 });
-    }
-
-    const query = "Daily enterprise intelligence briefing";
-    const result = await runIntelligence(query);
-
-    if (!auth.localMode && auth.supabase) {
-      await saveIntelligenceRun(auth.supabase, auth.user.id, {
-        query,
-        provider: result.provider,
-        evidencePreview: result.analysis.summary,
-        analysis: result.analysis,
-      });
-    }
-
-    return NextResponse.json({
-      provider: result.provider,
-      analysis: result.analysis,
-      cacheHit: result.cacheHit,
-    });
+    return NextResponse.json({ analysis: null, cached: false });
   } catch (error) {
     console.error("Intelligence GET failed", error);
     return NextResponse.json(

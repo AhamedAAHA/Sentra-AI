@@ -100,8 +100,8 @@ select {
     box-shadow:
       0 22px 58px rgba(0, 0, 0, 0.2),
       inset 0 1px 0 rgba(255, 255, 255, 0.07);
-    backdrop-filter: blur(28px) saturate(145%);
-    -webkit-backdrop-filter: blur(28px) saturate(145%);
+    backdrop-filter: blur(12px) saturate(120%);
+    -webkit-backdrop-filter: blur(12px) saturate(120%);
   }
 
   .premium-gradient-text {
@@ -142,6 +142,42 @@ select {
 @keyframes terminalBlink {
   50% {
     opacity: 0;
+  }
+}
+
+.particle-grid {
+  background-image: radial-gradient(circle at center, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.particle-dot {
+  animation: particle-float ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.ai-orb-spin-slow {
+  animation: ai-orb-rotate 14s linear infinite;
+}
+
+.ai-orb-spin-fast {
+  animation: ai-orb-rotate 5s linear infinite;
+}
+
+@keyframes ai-orb-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes particle-float {
+  0%,
+  100% {
+    transform: translate3d(0, -6px, 0) scale(0.85);
+    opacity: 0.12;
+  }
+  50% {
+    transform: translate3d(0, -28px, 0) scale(1.2);
+    opacity: 0.75;
   }
 }
 

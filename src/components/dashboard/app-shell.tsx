@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   BellRing,
+  BookOpen,
   Bot,
   BrainCircuit,
   Camera,
@@ -16,11 +18,15 @@ import {
 import { CommandPalette } from "@/components/shared/command-palette";
 import { LocalDevBanner } from "@/components/shared/local-dev-banner";
 import { ParticleField } from "@/components/shared/particle-field";
+import { NewUserGuideModal } from "@/components/dashboard/new-user-guide-modal";
 import { UserMenu } from "@/components/dashboard/user-menu";
+import { getLocalSession } from "@/lib/local-auth";
+import { isBrowserSupabaseConfigured } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/services", label: "Our Services", icon: BookOpen },
   { href: "/chat", label: "AI Chat", icon: Bot },
   { href: "/analyst", label: "AI Analyst", icon: ScanSearch },
   { href: "/analyst?mode=vision", label: "Visual Forensics", icon: Camera },
@@ -31,19 +37,41 @@ const nav = [
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const analystMode = searchParams.get("mode");
+  const [locationHash, setLocationHash] = useState("");
+
+  useEffect(() => {
+    const syncHash = () => setLocationHash(window.location.hash);
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, [pathname]);
+
   const isActive = (href: string) => {
+    const [path, hash] = href.split("#");
+    if (hash && path === pathname) {
+      return locationHash === `#${hash}`;
+    }
     if (href === "/analyst") return pathname === "/analyst" && analystMode !== "vision";
     if (href === "/analyst?mode=vision") return pathname === "/analyst" && analystMode === "vision";
-    return pathname === href;
+    return pathname === path;
   };
+
+  useEffect(() => {
+    if (isBrowserSupabaseConfigured()) return;
+    if (getLocalSession()) return;
+
+    const next = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    router.replace(`/sign-up?next=${encodeURIComponent(next)}`);
+  }, [pathname, router, searchParams]);
 
   return (
     <main className="min-h-screen">
-      <ParticleField />
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-white/10 bg-sentra-ink/70 p-5 backdrop-blur-2xl lg:flex">
+      <ParticleField lite />
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-white/10 bg-sentra-ink/92 p-5 lg:flex">
         <Link href="/" className="flex shrink-0 items-center gap-3 px-2 py-3 text-white">
           <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-sentra-cyan to-sentra-violet shadow-glow">
             <BrainCircuit className="h-5 w-5" />
@@ -77,7 +105,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
       <section className="pb-24 lg:pb-0 lg:pl-72">
         <LocalDevBanner />
-        <header className="sticky top-0 z-30 border-b border-white/10 bg-sentra-ink/55 px-4 py-4 backdrop-blur-2xl md:px-8">
+        <header className="sticky top-0 z-30 border-b border-white/10 bg-sentra-ink/92 px-4 py-4 md:px-8">
           <div className="flex min-w-0 items-center gap-3 md:gap-4">
             <CommandPalette className="min-w-0 flex-1" />
             <Link
@@ -99,7 +127,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
         <div className="px-4 py-8 md:px-8">{children}</div>
       </section>
-      <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-3 gap-2 rounded-3xl border border-white/10 bg-sentra-ink/85 p-2 shadow-2xl shadow-black/40 backdrop-blur-2xl lg:hidden">
+      <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-3 gap-2 rounded-3xl border border-white/10 bg-sentra-ink/95 p-2 shadow-2xl shadow-black/40 lg:hidden">
         {nav.slice(0, 3).map((item) => (
           <Link
             key={item.label}
@@ -114,6 +142,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
         ))}
       </nav>
+      <NewUserGuideModal />
     </main>
   );
 }

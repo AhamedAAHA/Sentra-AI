@@ -23,7 +23,7 @@ export async function middleware(request: NextRequest) {
 
   if (protectedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)) && !user) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/sign-in";
+    redirectUrl.pathname = "/sign-up";
     redirectUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(redirectUrl);
   }

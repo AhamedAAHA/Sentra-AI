@@ -1,14 +1,24 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Activity, BellRing, Building2, Radar, TrendingUp } from "lucide-react";
 import { DashboardBriefing } from "@/components/dashboard/dashboard-briefing";
-import { IntelligenceCharts } from "@/components/dashboard/intelligence-charts";
 import { LiveSignalsPanel } from "@/components/dashboard/live-signals-panel";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { RiskHeatmap } from "@/components/dashboard/risk-heatmap";
 import { AiOrb } from "@/components/shared/ai-orb";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+
+const IntelligenceCharts = dynamic(
+  () => import("@/components/dashboard/intelligence-charts").then((mod) => mod.IntelligenceCharts),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mb-8 grid h-72 animate-pulse gap-5 rounded-[28px] border border-white/10 bg-white/[0.04] xl:grid-cols-2" />
+    ),
+  },
+);
 
 const metrics = [
   { icon: Radar, label: "Signals monitored", value: "—", trend: "Refresh briefing", sample: true },
@@ -33,7 +43,7 @@ export default function DashboardPage() {
                 competitors from Alerts.
               </p>
             </div>
-            <AiOrb speaking size="md" className="shrink-0 self-center" />
+            <AiOrb speaking size="md" static className="shrink-0 self-center" />
           </div>
         </Card>
         <DashboardBriefing />

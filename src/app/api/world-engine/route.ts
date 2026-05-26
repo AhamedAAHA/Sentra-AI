@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server";
+import { requireApiUser } from "@/lib/auth/session";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { collectWebIntelligence } from "@/services/bright-data";
 import { generateWorldEngineReport } from "@/services/world-engine";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  const auth = await requireApiUser();
+  if ("error" in auth) return auth.error;
+
+  const limited = await checkRateLimit(auth.user.id, "intelligence");
+  if (!limited.allowed) {
+    return NextResponse.json({ error: limited.message }, { status: 429 });
+  }
+
   try {
     const body = (await request.json()) as { query?: string };
     const query = body.query?.trim().slice(0, 1500);

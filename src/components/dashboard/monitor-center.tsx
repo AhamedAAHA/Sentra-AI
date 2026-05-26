@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AlertTriangle, BellRing, Bot, CheckCircle2, Pause, Play, Radar, Sparkles, Trash2, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
@@ -91,6 +92,7 @@ function getMatches(monitor: Monitor, signals: IntelligenceSignal[]) {
 }
 
 export function MonitorCenter() {
+  const searchParams = useSearchParams();
   const aiAbortRef = useRef<AbortController | null>(null);
   const intentAbortRef = useRef<AbortController | null>(null);
   const [monitors, setMonitors] = useState<Monitor[]>([]);
@@ -198,8 +200,17 @@ export function MonitorCenter() {
   }, []);
 
   useEffect(() => {
+    const guidePrompt = searchParams.get("guidePrompt");
+    if (!guidePrompt) return;
+
+    const timeout = window.setTimeout(() => setRequirement(guidePrompt), 0);
+    return () => window.clearTimeout(timeout);
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!isBrowserSupabaseConfigured() && monitors.length) {
-      saveMonitors(monitors);
+      const timeout = window.setTimeout(() => saveMonitors(monitors), 400);
+      return () => window.clearTimeout(timeout);
     }
   }, [monitors]);
 

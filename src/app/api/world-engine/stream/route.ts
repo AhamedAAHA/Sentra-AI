@@ -1,3 +1,5 @@
+import { requireApiUser } from "@/lib/auth/session";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { collectWebIntelligence } from "@/services/bright-data";
 import { encodeSse, RealtimeLogService } from "@/services/realtime-log";
 import { generateWorldEngineReport } from "@/services/world-engine";
@@ -19,6 +21,14 @@ function sourceIdentity(url: string, title: string) {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireApiUser();
+  if ("error" in auth) return auth.error;
+
+  const limited = await checkRateLimit(auth.user.id, "intelligence");
+  if (!limited.allowed) {
+    return new Response(limited.message ?? "Rate limit exceeded.", { status: 429 });
+  }
+
   const body = (await request.json().catch(() => null)) as { query?: string } | null;
   const query = body?.query?.trim().slice(0, 1500);
   if (!query) return new Response("An intelligence question is required.", { status: 400 });

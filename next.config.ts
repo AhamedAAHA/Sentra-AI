@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion", "recharts"],
   },
+  async redirects() {
+    return [{ source: "/features", destination: "/services", permanent: true }];
+  },
   async headers() {
     return [
       {

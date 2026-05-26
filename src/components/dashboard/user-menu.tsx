@@ -5,37 +5,39 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LogOut, User } from "lucide-react";
 import type { UserResponse } from "@supabase/supabase-js";
+import { getLocalSession, signOutLocalAccount } from "@/lib/local-auth";
 import { getBrowserClient, isBrowserSupabaseConfigured } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 
-function getInitialLabel() {
-  return isBrowserSupabaseConfigured() ? null : "Local dev";
-}
-
 export function UserMenu() {
   const router = useRouter();
-  const [label, setLabel] = useState<string | null>(getInitialLabel);
+  const [label, setLabel] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isBrowserSupabaseConfigured()) return;
+    if (!isBrowserSupabaseConfigured()) {
+      const timeout = window.setTimeout(() => setLabel(getLocalSession()?.email ?? null), 0);
+      return () => window.clearTimeout(timeout);
+    }
 
     const supabase = getBrowserClient();
     if (!supabase) return;
 
     void supabase.auth.getUser().then((result: UserResponse) => {
-      setLabel(result.data.user?.email ?? null);
+      setLabel(result.data.user?.email ?? result.data.user?.id ?? "Account");
     });
   }, []);
 
   async function signOut() {
     if (!isBrowserSupabaseConfigured()) {
-      router.push("/sign-in");
+      signOutLocalAccount();
+      router.push("/sign-up");
+      router.refresh();
       return;
     }
 
     const supabase = getBrowserClient();
     if (supabase) await supabase.auth.signOut();
-    router.push("/sign-in");
+    router.push("/sign-up");
     router.refresh();
   }
 

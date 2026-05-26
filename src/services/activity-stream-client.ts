@@ -31,7 +31,12 @@ export async function streamWorldActivity(
         .split("\n")
         .find((line) => line.startsWith("data: "))
         ?.slice(6);
-      if (data) onEvent(JSON.parse(data) as ActivityStreamEvent);
+      if (!data) return;
+      try {
+        onEvent(JSON.parse(data) as ActivityStreamEvent);
+      } catch {
+        // Skip malformed SSE packets.
+      }
     });
   }
 }

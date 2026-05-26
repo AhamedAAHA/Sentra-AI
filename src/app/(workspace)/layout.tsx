@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -29,5 +30,9 @@ export default async function WorkspaceLayout({
     }
   }
 
-  return <AppShell>{children}</AppShell>;
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-sentra-ink" />}>
+      <AppShell>{children}</AppShell>
+    </Suspense>
+  );
 }

@@ -8,7 +8,7 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "glass-panel rounded-[28px] transition-[border-color,background-color,box-shadow,transform] duration-500 ease-out",
+      "glass-panel rounded-[28px] transition-[border-color,background-color,box-shadow] duration-200 ease-out",
       glow && "relative overflow-hidden before:absolute before:inset-x-8 before:-top-px before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/40 before:to-transparent",
       className,
     )}

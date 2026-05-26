@@ -114,8 +114,12 @@ function normalizeSignals(value: unknown): WorldMapSignal[] {
       ),
     };
   })
-    .filter((signal) => signal.valid)
-    .map(({ valid: _valid, ...signal }) => signal)
+    .flatMap((signal) => {
+      if (!signal.valid) return [];
+      const { valid: _omit, ...rest } = signal;
+      void _omit;
+      return [rest];
+    })
     .slice(0, 12);
 }
 
@@ -303,10 +307,18 @@ function isWebSearchOutput(item: unknown): item is WebSearchOutput {
 function extractSearchedSources(output: unknown[]): WorldSource[] {
   return output.flatMap((item) =>
     isWebSearchOutput(item)
-      ? (item.action.sources ?? []).map((source: { url: string }) => ({
-          title: new URL(source.url).hostname.replace(/^www\./, ""),
-          url: source.url,
-        }))
+      ? (item.action.sources ?? []).flatMap((source: { url: string }) => {
+          try {
+            return [
+              {
+                title: new URL(source.url).hostname.replace(/^www\./, ""),
+                url: source.url,
+              },
+            ];
+          } catch {
+            return [];
+          }
+        })
       : [],
   );
 }

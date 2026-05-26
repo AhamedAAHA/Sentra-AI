@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { createLocalAccount, markNewUserGuidePending, signInLocalAccount } from "@/lib/local-auth";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 import { getBrowserClient, isBrowserSupabaseConfigured } from "@/lib/supabase/client";
 
 type AuthShellProps = {
@@ -28,20 +30,39 @@ export function AuthShell({ mode }: AuthShellProps) {
   const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
-  const nextPath = searchParams.get("next") || "/dashboard";
+  const nextPath = safeRedirectPath(searchParams.get("next"));
+  const authToggleHref = isSignUp
+    ? `/sign-in${nextPath !== "/dashboard" ? `?next=${encodeURIComponent(nextPath)}` : ""}`
+    : `/sign-up${nextPath !== "/dashboard" ? `?next=${encodeURIComponent(nextPath)}` : ""}`;
 
-  function enterLocalWorkspace(message: string) {
-    toast.success(message, {
-      description: "Local mode: no Supabase. Add keys in .env.local when you deploy.",
-    });
-    router.push(nextPath);
+  async function handleLocalAuth() {
+    setLoading(true);
+    try {
+      if (isSignUp) {
+        await createLocalAccount({ email, password, companyName });
+        toast.success("Local account created", {
+          description: "This account is stored only in this browser until Supabase is configured.",
+        });
+      } else {
+        await signInLocalAccount({ email, password });
+        toast.success("Signed in locally", {
+          description: "Your local workspace session is active in this browser.",
+        });
+      }
+      router.push(nextPath);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Local authentication failed.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleEmailAuth(event: React.FormEvent) {
     event.preventDefault();
 
     if (!supabaseEnabled) {
-      enterLocalWorkspace(isSignUp ? "Workspace ready (local)" : "Signed in (local)");
+      await handleLocalAuth();
       return;
     }
 
@@ -60,6 +81,7 @@ export function AuthShell({ mode }: AuthShellProps) {
           },
         });
         if (error) throw error;
+        markNewUserGuidePending();
         toast.success("Check your email to confirm your account.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -76,7 +98,9 @@ export function AuthShell({ mode }: AuthShellProps) {
 
   async function handleMagicLink() {
     if (!supabaseEnabled) {
-      enterLocalWorkspace("Local workspace");
+      toast.message("Magic links need Supabase.", {
+        description: "Use local email and password until you add Supabase keys.",
+      });
       return;
     }
 
@@ -108,7 +132,9 @@ export function AuthShell({ mode }: AuthShellProps) {
 
   async function handleOAuth(provider: "google" | "github") {
     if (!supabaseEnabled) {
-      enterLocalWorkspace(`Continuing with ${provider} (local mode)`);
+      toast.message(`${provider} sign-in needs Supabase.`, {
+        description: "Use local email and password until you add Supabase keys.",
+      });
       return;
     }
 
@@ -146,14 +172,14 @@ export function AuthShell({ mode }: AuthShellProps) {
             </span>
             Sentra AI
           </Link>
-          <Badge variant="cyan">{supabaseEnabled ? "Secure enterprise access" : "Local development"}</Badge>
+          <Badge variant="cyan">{supabaseEnabled ? "Secure enterprise access" : "Local auth"}</Badge>
           <h1 className="mt-5 max-w-xl text-5xl font-semibold tracking-tight text-white">
             Enter the intelligence layer for teams that never fly blind.
           </h1>
           <p className="mt-5 max-w-lg text-lg leading-8 text-white/55">
             {supabaseEnabled
               ? "Sign in to save chat history, live briefings, and custom monitors powered by Bright Data."
-              : "Build with a friend on GitHub first. Supabase auth and cloud saves activate when you add keys for deploy."}
+              : "Create a browser-local account now. Supabase auth and cloud saves can be added later without changing the flow."}
           </p>
           <AiOrb size="lg" className="mt-12" />
         </motion.div>
@@ -172,21 +198,9 @@ export function AuthShell({ mode }: AuthShellProps) {
               <p className="mt-2 text-sm text-white/50">
                 {supabaseEnabled
                   ? "Email, magic link, Google, or GitHub — your workspace syncs to Supabase."
-                  : "No Supabase keys detected — use local mode below. Perfect for hackathon dev with a teammate."}
+                  : "No Supabase keys detected. Use email and password for local browser auth."}
               </p>
             </div>
-
-            {!supabaseEnabled && (
-              <Button
-                type="button"
-                variant="neon"
-                size="lg"
-                className="mb-6 w-full"
-                onClick={() => enterLocalWorkspace("Entering local workspace")}
-              >
-                Enter workspace (local mode)
-              </Button>
-            )}
 
             {supabaseEnabled && (
               <>
@@ -219,38 +233,36 @@ export function AuthShell({ mode }: AuthShellProps) {
             )}
 
             <form className="grid gap-4" onSubmit={handleEmailAuth}>
-              {isSignUp && supabaseEnabled && (
+              {isSignUp && (
                 <Input
                   placeholder="Company name"
                   value={companyName}
                   onChange={(event) => setCompanyName(event.target.value)}
                 />
               )}
-              {supabaseEnabled && (
-                <>
-                  <Input
-                    placeholder="Work email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                  />
-                  <Input
-                    placeholder="Password"
-                    type="password"
-                    required={!magicLinkSent}
-                    minLength={6}
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                  />
-                </>
-              )}
+              <Input
+                placeholder="Work email"
+                type="email"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+              <Input
+                placeholder={supabaseEnabled ? "Password" : "Local password"}
+                type="password"
+                required={!magicLinkSent}
+                minLength={6}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
               <Button variant={supabaseEnabled ? "neon" : "ghost"} size="lg" className="mt-2" disabled={loading} type="submit">
                 {supabaseEnabled
                   ? isSignUp
                     ? "Create intelligence workspace"
                     : "Enter Sentra OS"
-                  : "Continue without cloud auth"}
+                  : isSignUp
+                    ? "Create local account"
+                    : "Sign in locally"}
               </Button>
             </form>
 
@@ -268,10 +280,7 @@ export function AuthShell({ mode }: AuthShellProps) {
 
             <p className="mt-7 text-center text-sm text-white/50">
               {isSignUp ? "Already have an account?" : "New to Sentra AI?"}{" "}
-              <Link
-                href={isSignUp ? "/sign-in" : "/sign-up"}
-                className="font-medium text-sentra-cyan hover:text-white"
-              >
+              <Link href={authToggleHref} className="font-medium text-sentra-cyan hover:text-white">
                 {isSignUp ? "Sign in" : "Create account"}
               </Link>
             </p>
