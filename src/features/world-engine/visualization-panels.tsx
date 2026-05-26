@@ -39,7 +39,7 @@ function IntelligenceGraph({ report }: { report: WorldEngineReport }) {
   const positions = new Map(points.map((node) => [node.id, node]));
 
   return (
-    <Card className="overflow-hidden p-5" glow>
+    <Card className="self-start overflow-hidden p-5" glow>
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.23em] text-white/38">Neural intelligence graph</p>
@@ -47,7 +47,7 @@ function IntelligenceGraph({ report }: { report: WorldEngineReport }) {
         </div>
         <GitBranch className="h-5 w-5 text-sentra-cyan" />
       </div>
-      <svg viewBox="0 0 360 292" className="mt-4 h-[292px] w-full" role="img" aria-label="Entity relationship graph">
+      <svg viewBox="0 0 360 292" className="mx-auto mt-4 h-[292px] w-full max-w-[620px]" role="img" aria-label="Entity relationship graph">
         {report.links.map((link, index) => {
           const source = positions.get(link.source);
           const target = positions.get(link.target);
@@ -97,7 +97,7 @@ function IntelligenceGraph({ report }: { report: WorldEngineReport }) {
 
 function SignalRadar({ report }: { report: WorldEngineReport }) {
   return (
-    <Card className="p-5" glow>
+    <Card className="self-start p-5" glow>
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.23em] text-white/38">Signal pulse radar</p>
@@ -136,7 +136,7 @@ function ForecastEngine({ report }: { report: WorldEngineReport }) {
   }));
 
   return (
-    <Card className="p-5" glow>
+    <Card className="self-start p-5" glow>
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.23em] text-white/38">Predictive timeline engine</p>
@@ -183,12 +183,14 @@ function ForecastEngine({ report }: { report: WorldEngineReport }) {
 }
 
 function SentimentSystem({ report }: { report: WorldEngineReport }) {
+  const regionalSignals = report.signals.filter((signal) => signal.region && !/^global$/i.test(signal.region));
+
   return (
-    <Card className="p-5" glow>
+    <Card className="self-start p-5" glow>
       <p className="text-xs uppercase tracking-[0.23em] text-white/38">Sentiment heatmap system</p>
       <h3 className="mt-2 text-xl font-semibold text-white">Regional pulse</h3>
       <div className="mt-5 grid gap-3">
-        {report.signals.map((signal, index) => {
+        {regionalSignals.length ? regionalSignals.map((signal, index) => {
           const favorable = signal.sentiment >= 0;
           return (
             <div key={`${signal.id}-${index}`}>
@@ -207,7 +209,14 @@ function SentimentSystem({ report }: { report: WorldEngineReport }) {
               </div>
             </div>
           );
-        })}
+        }) : (
+          <div className="rounded-2xl border border-amber-200/15 bg-amber-300/[0.04] p-4">
+            <p className="text-sm font-medium text-amber-100">No regional pulse returned</p>
+            <p className="mt-2 text-xs leading-5 text-white/48">
+              The analyst did not return enough city, country, or region-level anchors for this prompt. Review the overview and verification layer for the global evidence summary.
+            </p>
+          </div>
+        )}
       </div>
     </Card>
   );

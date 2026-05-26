@@ -26,7 +26,15 @@ export async function POST(request: Request) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const emit = (event: ActivityStreamEvent) => controller.enqueue(encoder.encode(encodeSse(event)));
+      let streamClosed = false;
+      const emit = (event: ActivityStreamEvent) => {
+        if (streamClosed) return;
+        try {
+          controller.enqueue(encoder.encode(encodeSse(event)));
+        } catch {
+          streamClosed = true;
+        }
+      };
       const logs = new RealtimeLogService(emit);
       const heartbeat = setInterval(() => logs.health(), 1000);
       const brightDataConfigured = Boolean(
@@ -307,8 +315,19 @@ export async function POST(request: Request) {
         emit({ type: "error", message });
       } finally {
         clearInterval(heartbeat);
-        controller.close();
+        if (!streamClosed) {
+          streamClosed = true;
+          try {
+            controller.close();
+          } catch {
+            // The browser may have already closed the SSE connection.
+          }
+        }
       }
+    },
+    cancel() {
+      // Client navigation or reload can close the stream while async work is still winding down.
+      // The guarded emitter above prevents late health ticks from throwing.
     },
   });
 

@@ -60,11 +60,26 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "Inter", "ui-sans-serif", "system-ui"],
+        sans: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "\"SF Pro Text\"",
+          "var(--font-inter)",
+          "Inter",
+          "sans-serif",
+        ],
+        display: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "\"SF Pro Display\"",
+          "var(--font-inter)",
+          "Inter",
+          "sans-serif",
+        ],
       },
       boxShadow: {
-        glow: "0 0 80px rgba(83, 244, 255, 0.25)",
-        "violet-glow": "0 0 90px rgba(168, 85, 247, 0.28)",
+        glow: "0 14px 38px rgba(37, 111, 235, 0.18), 0 1px 1px rgba(255, 255, 255, 0.08) inset",
+        "violet-glow": "0 16px 44px rgba(113, 107, 255, 0.22)",
       },
       backgroundImage: {
         "radial-grid":

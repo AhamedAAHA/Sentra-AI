@@ -3,23 +3,25 @@
 @tailwind utilities;
 
 :root {
-  --background: 229 54% 3%;
+  --background: 228 35% 5%;
   --foreground: 210 40% 98%;
-  --card: 226 43% 9%;
+  --card: 225 23% 11%;
   --card-foreground: 210 40% 98%;
-  --primary: 184 100% 66%;
+  --primary: 211 100% 63%;
   --primary-foreground: 224 71% 4%;
-  --secondary: 248 60% 18%;
+  --secondary: 224 20% 15%;
   --secondary-foreground: 210 40% 98%;
-  --muted: 225 26% 15%;
-  --muted-foreground: 218 16% 68%;
-  --accent: 269 94% 65%;
+  --muted: 225 17% 15%;
+  --muted-foreground: 220 12% 70%;
+  --accent: 247 89% 70%;
   --accent-foreground: 210 40% 98%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 210 40% 98%;
-  --border: 225 30% 22%;
-  --input: 225 30% 22%;
-  --ring: 184 100% 66%;
+  --border: 222 17% 23%;
+  --input: 222 17% 23%;
+  --ring: 211 100% 63%;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-inter), Inter, "Helvetica Neue", sans-serif;
 }
 
 * {
@@ -33,49 +35,92 @@ html {
 body {
   min-height: 100vh;
   overflow-x: hidden;
+  font-family: var(--font-body);
+  font-weight: 400;
+  letter-spacing: -0.011em;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background:
-    radial-gradient(circle at 15% 10%, rgba(83, 244, 255, 0.12), transparent 28rem),
-    radial-gradient(circle at 85% 5%, rgba(168, 85, 247, 0.14), transparent 26rem),
-    #050712;
+    radial-gradient(circle at 18% 6%, rgba(73, 137, 216, 0.14), transparent 32rem),
+    radial-gradient(circle at 85% 5%, rgba(113, 107, 255, 0.12), transparent 28rem),
+    linear-gradient(145deg, #070a12 0%, #090c16 48%, #0d0b16 100%);
   color: hsl(var(--foreground));
 }
 
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
 ::selection {
-  background: rgba(83, 244, 255, 0.35);
+  background: rgba(65, 145, 255, 0.38);
   color: white;
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #050712;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(83, 244, 255, 0.55), rgba(168, 85, 247, 0.55));
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
 }
 
 @layer components {
   .glass-panel {
-    @apply border border-white/10 bg-white/[0.065] shadow-2xl shadow-black/30 backdrop-blur-2xl;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.035)),
+      rgba(16, 19, 30, 0.56);
+    box-shadow:
+      0 22px 58px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(28px) saturate(145%);
+    -webkit-backdrop-filter: blur(28px) saturate(145%);
   }
 
   .premium-gradient-text {
-    @apply bg-gradient-to-r from-white via-cyan-100 to-violet-200 bg-clip-text text-transparent;
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(110deg, #ffffff 6%, #eef5ff 48%, #b8cbff 100%);
   }
 
   .sentra-focus {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sentra-cyan/80 focus-visible:ring-offset-2 focus-visible:ring-offset-sentra-ink;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/65 focus-visible:ring-offset-2 focus-visible:ring-offset-sentra-ink;
   }
 
   .terminal-panel {
     background:
       linear-gradient(180deg, rgba(3, 13, 23, 0.94), rgba(5, 7, 18, 0.96)),
-      radial-gradient(circle at 15% 10%, rgba(83, 244, 255, 0.08), transparent 38%);
-    box-shadow: inset 0 0 60px rgba(83, 244, 255, 0.025), 0 0 50px rgba(83, 244, 255, 0.08);
+      radial-gradient(circle at 15% 10%, rgba(65, 145, 255, 0.07), transparent 38%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.055),
+      inset 0 0 60px rgba(65, 145, 255, 0.024),
+      0 18px 52px rgba(0, 0, 0, 0.24);
   }
 
   .terminal-scanline {
@@ -97,6 +142,17 @@ body {
 @keyframes terminalBlink {
   50% {
     opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
