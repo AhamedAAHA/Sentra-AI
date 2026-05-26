@@ -80,7 +80,7 @@ export async function generateChatResponse(message: string) {
 
   const freshnessDate = getFreshnessDate();
   const response = await client.responses.create({
-    model: process.env.OPENAI_CHAT_MODEL || "gpt-5.5",
+    model: process.env.OPENAI_CHAT_MODEL || "gpt-4o",
     instructions: `${CHAT_PROMPT}\nUse ${freshnessDate.date} (${freshnessDate.timeZone}) as the current date when resolving which source is latest.`,
     input: message,
     tools: [{ type: "web_search", search_context_size: "medium" }],
