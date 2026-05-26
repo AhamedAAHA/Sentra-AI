@@ -14,7 +14,7 @@ export function AnalystWorkspace() {
 
   return (
     <>
-      <div className="sticky top-[73px] z-20 -mx-2 mb-7 flex items-center bg-sentra-ink/78 px-2 py-3 backdrop-blur-xl md:top-[81px]">
+      <div className="sticky top-20 z-20 -mx-2 mb-7 flex items-center bg-sentra-ink/78 px-2 py-3 backdrop-blur-xl">
         <nav className="inline-flex rounded-full border border-white/10 bg-white/[0.045] p-1 shadow-[0_14px_34px_rgba(0,0,0,.22)]" aria-label="AI Analyst modes">
           {[
             { id: "world" as const, label: "AI World Engine", icon: Globe2 },
