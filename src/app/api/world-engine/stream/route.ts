@@ -34,6 +34,7 @@ export async function POST(request: Request) {
         process.env.BRIGHT_DATA_SERP_ZONE,
       );
       const openAiConfigured = Boolean(process.env.OPENAI_API_KEY);
+      const observedSourceIds = new Set<string>();
 
       try {
         logs.log({
@@ -62,12 +63,17 @@ export async function POST(request: Request) {
             message: "Querying configured Google SERP collection endpoint.",
           });
         } else {
+          const missingSettings = [
+            !process.env.BRIGHT_DATA_API_KEY && "API key",
+            !process.env.BRIGHT_DATA_SERP_ENDPOINT && "SERP endpoint",
+            !process.env.BRIGHT_DATA_SERP_ZONE && "SERP zone",
+          ].filter(Boolean).join(", ");
           logs.source({
             id: "bright-data-serp",
             name: "Google SERP via Bright Data",
             channel: "api",
             status: "unavailable",
-            detail: "Not contacted: credentials or endpoint not configured",
+            detail: `Not contacted: missing ${missingSettings}`,
           });
           logs.log({
             category: "SERP",
@@ -215,12 +221,14 @@ export async function POST(request: Request) {
                 },
                 onSourceDiscovered: (source) => {
                   const identity = sourceIdentity(source.url, source.title);
+                  if (observedSourceIds.has(identity.id)) return;
+                  observedSourceIds.add(identity.id);
                   logs.source({
                     id: identity.id,
                     name: identity.name,
                     channel: "web",
                     status: "success",
-                    detail: "Referenced during live search",
+                    detail: "Discovered during active live search",
                     url: source.url,
                   });
                   logs.log({

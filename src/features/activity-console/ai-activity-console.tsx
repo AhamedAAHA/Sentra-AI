@@ -146,7 +146,16 @@ export function LiveAgentLogs({ logs, running }: { logs: ActivityLog[]; running:
 export function SourceTracker({ sources }: { sources: CollectionSource[] }) {
   const sourceMap = new Map(sources.map((source) => [source.id, source]));
   const discovered = sources.filter((source) => !streamRegistry.some((registered) => registered.id === source.id));
-  const visible = [...streamRegistry.map((source) => sourceMap.get(source.id) ?? source), ...discovered];
+  const statusPriority: Record<CollectionSource["status"], number> = {
+    active: 0,
+    connecting: 1,
+    success: 2,
+    error: 3,
+    unavailable: 4,
+    idle: 5,
+  };
+  const visible = [...streamRegistry.map((source) => sourceMap.get(source.id) ?? source), ...discovered]
+    .sort((left, right) => statusPriority[left.status] - statusPriority[right.status]);
 
   return (
     <div className="grid gap-2" aria-label="Live collection streams">

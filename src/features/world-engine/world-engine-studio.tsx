@@ -436,7 +436,7 @@ export function WorldEngineStudio() {
         </Card>
       </section>
 
-      {(loading || logs.length > 0) && (
+      {(loading || (logs.length > 0 && !report)) && (
         <section className="mb-5">
           <AIActivityConsole logs={logs} sources={sources} thoughts={thoughts} health={health} running={loading} />
         </section>
@@ -528,6 +528,7 @@ export function WorldEngineStudio() {
               ))}
             </div>
           </Card>
+          <AIActivityConsole logs={logs} sources={sources} thoughts={thoughts} health={health} running={false} />
         </motion.div>
       )}
 

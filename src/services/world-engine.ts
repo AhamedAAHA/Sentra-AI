@@ -213,9 +213,18 @@ export async function generateWorldEngineReport(
 
   if (observer) {
     let outputText = "";
-    let searchedSources: WorldSource[] = [];
+    const searchedSources: WorldSource[] = [];
+    const discoveredUrls = new Set<string>();
     let searchStartedAt = 0;
     let synthesisAnnounced = false;
+    const publishSources = (items: unknown[]) => {
+      extractSearchedSources(items).forEach((source) => {
+        if (discoveredUrls.has(source.url)) return;
+        discoveredUrls.add(source.url);
+        searchedSources.push(source);
+        observer.onSourceDiscovered?.(source);
+      });
+    };
     const stream = await client.responses.create({ ...request, stream: true });
     for await (const event of stream) {
       if (event.type === "response.created") observer.onResponseCreated?.();
@@ -234,15 +243,17 @@ export async function generateWorldEngineReport(
           observer.onSynthesisStarted?.();
         }
       }
+      if (event.type === "response.output_item.done" && event.item.type === "web_search_call") {
+        publishSources([event.item]);
+      }
       if (event.type === "response.completed") {
-        searchedSources = extractSearchedSources(event.response.output);
+        publishSources(event.response.output);
       }
       if (event.type === "response.failed") {
         throw new Error("The OpenAI intelligence synthesis failed.");
       }
     }
     if (!outputText.trim()) throw new Error("The world engine returned no intelligence model.");
-    searchedSources.forEach((source) => observer.onSourceDiscovered?.(source));
     const parsed = parseReportJson(outputText);
     const providedSources = Array.isArray(parsed.sources) ? parsed.sources : [];
     return normalizeReport({ ...parsed, sources: [...providedSources, ...searchedSources] }, input);
