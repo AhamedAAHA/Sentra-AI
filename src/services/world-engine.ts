@@ -41,6 +41,7 @@ Do not invent events, entities, locations, relationships, probabilities, or sour
 Separate observed signals from forecast hypotheses. Forecast and scenario probabilities are analytical estimates, not facts.
 For scenario questions, set scenarioMode true and model cascading impacts conditionally.
 Provide geographic latitude and longitude only for region-level visualization anchors, not claims of precise event coordinates.
+For signals, only include concrete regional anchors such as cities, countries, or named regions. Do not emit a generic "Global" or "Unspecified signal" item.
 Return JSON only. Use integer scores from 0 to 100 and sentiment from -100 to 100.
 The JSON keys must be: scenarioMode, headline, executiveSummary, riskIndex, confidence, outlook, recommendation, visualizations, signals, nodes, links, forecasts, pulse, reasoning, scenario, briefings, sources, limitations.
 visualizations may contain globe, network, forecast, sentiment, radar, scenario.
@@ -85,18 +86,37 @@ function parseReportJson(output: string): RawReport {
 }
 
 function normalizeSignals(value: unknown): WorldMapSignal[] {
-  return list(value, (item, index) => ({
-    id: text(item.id, `signal-${index}`),
-    title: text(item.title, "Unspecified signal"),
-    region: text(item.region, "Global"),
-    latitude: typeof item.latitude === "number" ? Math.max(-85, Math.min(85, item.latitude)) : 0,
-    longitude: typeof item.longitude === "number" ? Math.max(-180, Math.min(180, item.longitude)) : 0,
-    severity: severities.includes(item.severity as WorldSeverity) ? (item.severity as WorldSeverity) : "medium",
-    domain: domains.includes(item.domain as WorldDomain) ? (item.domain as WorldDomain) : "markets",
-    sentiment: sentiment(item.sentiment),
-    intensity: score(item.intensity, 50),
-    summary: text(item.summary, "Signal requires further verification."),
-  })).slice(0, 12);
+  return list(value, (item, index) => {
+    const title = text(item.title, "");
+    const region = text(item.region, "");
+    const summary = text(item.summary, "");
+    const latitude = typeof item.latitude === "number" ? Math.max(-85, Math.min(85, item.latitude)) : undefined;
+    const longitude = typeof item.longitude === "number" ? Math.max(-180, Math.min(180, item.longitude)) : undefined;
+
+    return {
+      id: text(item.id, `signal-${index}`),
+      title,
+      region,
+      latitude: latitude ?? 0,
+      longitude: longitude ?? 0,
+      severity: severities.includes(item.severity as WorldSeverity) ? (item.severity as WorldSeverity) : "medium",
+      domain: domains.includes(item.domain as WorldDomain) ? (item.domain as WorldDomain) : "markets",
+      sentiment: sentiment(item.sentiment),
+      intensity: score(item.intensity, 50),
+      summary,
+      valid: Boolean(
+        title &&
+        summary &&
+        region &&
+        !/^global$/i.test(region) &&
+        latitude !== undefined &&
+        longitude !== undefined,
+      ),
+    };
+  })
+    .filter((signal) => signal.valid)
+    .map(({ valid: _valid, ...signal }) => signal)
+    .slice(0, 12);
 }
 
 function normalizeNodes(value: unknown): IntelligenceNode[] {
@@ -168,7 +188,7 @@ function normalizeReport(raw: RawReport, input: WorldEngineInput): WorldEngineRe
     visualizations: normalizedVisuals.length
       ? Array.from(new Set<VisualizationKind>(["globe", ...normalizedVisuals]))
       : fallback.visualizations,
-    signals: signals.length ? signals : fallback.signals,
+    signals,
     nodes: nodes.length ? nodes : fallback.nodes,
     links: nodes.length ? normalizeLinks(raw.links, nodes) : fallback.links,
     forecasts: forecasts.length ? forecasts : fallback.forecasts,

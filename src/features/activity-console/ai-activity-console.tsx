@@ -1,6 +1,5 @@
 "use client";
 
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity,
@@ -82,18 +81,12 @@ function statusTone(status: CollectionSource["status"]) {
 
 export function LiveAgentLogs({ logs, running }: { logs: ActivityLog[]; running: boolean }) {
   const viewportRef = useRef<HTMLDivElement>(null);
-  // The terminal is intentionally windowed so long-lived live sessions keep a bounded DOM.
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const virtualizer = useVirtualizer({
-    count: logs.length,
-    getScrollElement: () => viewportRef.current,
-    estimateSize: () => 52,
-    overscan: 8,
-  });
 
   useEffect(() => {
-    if (logs.length) virtualizer.scrollToIndex(logs.length - 1, { align: "end" });
-  }, [logs.length, virtualizer]);
+    if (logs.length && viewportRef.current) {
+      viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
+    }
+  }, [logs.length]);
 
   return (
     <div ref={viewportRef} className="h-[368px] overflow-auto font-mono text-[12px]" role="log" aria-live="polite" aria-label="Live AI processing events">
@@ -102,40 +95,32 @@ export function LiveAgentLogs({ logs, running }: { logs: ActivityLog[]; running:
           <p>&gt; Waiting for an intelligence directive<span className="terminal-cursor">_</span></p>
         </div>
       )}
-      <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
-        {virtualizer.getVirtualItems().map((row) => {
-          const log = logs[row.index];
-          const latest = row.index === logs.length - 1;
+      <div className="min-h-full">
+        {logs.map((log, index) => {
+          const latest = index === logs.length - 1;
           return (
-            <div
+            <motion.div
               key={log.id}
-              ref={virtualizer.measureElement}
-              data-index={row.index}
-              className="absolute left-0 top-0 w-full"
-              style={{ transform: `translateY(${row.start}px)` }}
+              initial={{ opacity: 0, x: 5 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex gap-3 border-b border-white/[0.045] px-3 py-2.5 leading-5"
             >
-              <motion.div
-                initial={{ opacity: 0, x: 5 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="flex gap-3 border-b border-white/[0.045] px-3 py-2.5 leading-5"
-              >
-                <span className="shrink-0 text-white/34">[{formatTime(log.timestamp)}]</span>
-                <span className={cn("w-16 shrink-0 font-semibold", categoryColors[log.category])}>{log.category}</span>
-                <span className="text-white/34">-&gt;</span>
-                <div className="min-w-0 flex-1">
-                  <p className={cn("break-words text-white/70", log.level === "error" && "text-rose-100", log.level === "warning" && "text-amber-100")}>
-                    {log.message}{latest && running && <span className="terminal-cursor">_</span>}
+              <span className="shrink-0 text-white/34">[{formatTime(log.timestamp)}]</span>
+              <span className={cn("w-16 shrink-0 font-semibold", categoryColors[log.category])}>{log.category}</span>
+              <span className="text-white/34">-&gt;</span>
+              <div className="min-w-0 flex-1">
+                <p className={cn("break-words text-white/70", log.level === "error" && "text-rose-100", log.level === "warning" && "text-amber-100")}>
+                  {log.message}{latest && running && <span className="terminal-cursor">_</span>}
+                </p>
+                {(log.source || log.latencyMs !== undefined || log.confidence !== undefined) && (
+                  <p className="break-words text-[10px] text-white/36">
+                    {log.source && `SOURCE=${log.source}  `}
+                    {log.latencyMs !== undefined && `LATENCY=${log.latencyMs}ms  `}
+                    {log.confidence !== undefined && `CONFIDENCE=${log.confidence}%`}
                   </p>
-                  {(log.source || log.latencyMs !== undefined || log.confidence !== undefined) && (
-                    <p className="text-[10px] text-white/36">
-                      {log.source && `SOURCE=${log.source}  `}
-                      {log.latencyMs !== undefined && `LATENCY=${log.latencyMs}ms  `}
-                      {log.confidence !== undefined && `CONFIDENCE=${log.confidence}%`}
-                    </p>
-                  )}
-                </div>
-              </motion.div>
-            </div>
+                )}
+              </div>
+            </motion.div>
           );
         })}
       </div>
@@ -158,17 +143,17 @@ export function SourceTracker({ sources }: { sources: CollectionSource[] }) {
     .sort((left, right) => statusPriority[left.status] - statusPriority[right.status]);
 
   return (
-    <div className="grid gap-2" aria-label="Live collection streams">
+    <div className="grid min-w-0 gap-2" aria-label="Live collection streams">
       {visible.map((source) => (
-        <div key={source.id} className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
-          <div className="flex items-center gap-2">
+        <div key={source.id} className="min-w-0 overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
+          <div className="flex min-w-0 items-start gap-2">
             <span className={cn("h-2 w-2 shrink-0 rounded-full", statusTone(source.status), (source.status === "active" || source.status === "connecting") && "animate-pulse")} />
-            <p className="truncate text-xs text-white/68">{source.name}</p>
-            <span className="ml-auto text-[10px] uppercase text-white/34">{source.status}</span>
+            <p className="min-w-0 flex-1 break-words text-xs leading-4 text-white/68">{source.name}</p>
+            <span className="shrink-0 rounded-full border border-white/[0.08] px-1.5 py-0.5 text-[9px] uppercase leading-none text-white/38">{source.status}</span>
           </div>
-          <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-white/35">
-            <span className="truncate">{source.detail}</span>
-            {source.latencyMs !== undefined && <span>{source.latencyMs}ms</span>}
+          <div className="mt-1.5 flex min-w-0 flex-wrap items-center justify-between gap-2 text-[10px] leading-4 text-white/35">
+            <span className="min-w-0 break-words">{source.detail}</span>
+            {source.latencyMs !== undefined && <span className="shrink-0">{source.latencyMs}ms</span>}
           </div>
         </div>
       ))}
@@ -305,21 +290,21 @@ export function AIActivityConsole({ logs, sources, thoughts, health, running }: 
             </button>
           ))}
         </div>
-        <div className={cn("grid gap-4", fullscreen ? "min-h-0 flex-1 xl:grid-cols-[1fr_370px]" : "xl:grid-cols-[1fr_330px]")}>
-          <div className="overflow-hidden rounded-2xl border border-cyan-300/10 bg-[#030912]/80">
+        <div className={cn("grid min-w-0 gap-4", fullscreen ? "min-h-0 flex-1 xl:grid-cols-[minmax(0,1fr)_minmax(300px,370px)]" : "xl:grid-cols-[minmax(0,1fr)_minmax(280px,330px)]")}>
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-cyan-300/10 bg-[#030912]/80">
             <div className="flex items-center justify-between border-b border-white/[0.05] px-3 py-2 font-mono text-[10px] text-white/35">
               <span>LIVE_AGENT_LOGS</span>
               <span>{paused ? "DISPLAY PAUSED" : `${filtered.length} EVENTS`}</span>
             </div>
             <LiveAgentLogs logs={filtered} running={running && !paused} />
           </div>
-          <div className="grid content-start gap-4">
+          <div className="grid min-w-0 content-start gap-4">
             <IntelligencePipelineMonitor health={health} running={running} />
             <div className="rounded-2xl border border-white/[0.07] bg-black/15 p-3">
               <p className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-cyan-100/48">
                 <RadioTower className="h-3.5 w-3.5" /> Live collection streams
               </p>
-              <div className="max-h-64 overflow-auto">
+              <div className="max-h-64 min-w-0 overflow-y-auto overflow-x-hidden">
                 <SourceTracker sources={sources} />
               </div>
             </div>

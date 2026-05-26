@@ -4,17 +4,17 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "sentra-focus inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-semibold transition-all disabled:pointer-events-none disabled:opacity-50",
+  "sentra-focus inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium tracking-[-0.01em] transition-all duration-300 ease-out disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         default:
-          "bg-white text-sentra-ink shadow-glow hover:-translate-y-0.5 hover:bg-cyan-100",
+          "bg-white/[0.96] text-sentra-ink shadow-[0_8px_22px_rgba(0,0,0,.15)] hover:-translate-y-px hover:bg-white hover:shadow-[0_13px_28px_rgba(0,0,0,.2)]",
         neon:
-          "bg-gradient-to-r from-sentra-cyan via-sentra-blue to-sentra-violet text-white shadow-glow hover:-translate-y-0.5 hover:shadow-violet-glow",
+          "bg-gradient-to-b from-[#3f9cff] to-[#2676eb] text-white shadow-[0_10px_25px_rgba(38,118,235,.3)] hover:-translate-y-px hover:brightness-110 hover:shadow-[0_15px_35px_rgba(38,118,235,.36)]",
         ghost:
-          "border border-white/10 bg-white/[0.04] text-white hover:border-white/20 hover:bg-white/[0.08]",
-        link: "text-sentra-cyan underline-offset-4 hover:underline",
+          "border border-white/10 bg-white/[0.045] text-white backdrop-blur-xl hover:border-white/18 hover:bg-white/[0.085]",
+        link: "text-blue-300 underline-offset-4 hover:text-blue-200 hover:underline",
       },
       size: {
         sm: "h-9 px-4",

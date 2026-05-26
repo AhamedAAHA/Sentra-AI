@@ -54,7 +54,33 @@ const prompts = [
   "What happens if AI replaces 40% of jobs?",
 ];
 const domains: Array<WorldDomain | "all"> = ["all", "geopolitics", "ai", "finance", "cybersecurity", "climate", "markets"];
+const analystSections = [
+  ["analyst-overview", "Overview"],
+  ["analyst-map", "Globe"],
+  ["analyst-radar", "Signal radar"],
+  ["analyst-reasoning", "Reasoning"],
+  ["analyst-graph", "Graph"],
+  ["analyst-forecast", "Forecasts"],
+  ["analyst-regional", "Regional pulse"],
+  ["analyst-narrator", "Narrator"],
+  ["analyst-scenario", "Scenario"],
+  ["analyst-verification", "Verification"],
+  ["analyst-activity", "Activity logs"],
+] as const;
+
+function getAnalystTakeaways(summary: string) {
+  return summary
+    .trim()
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
 function VerdictStrip({ report }: { report: WorldEngineReport }) {
+  const takeaways = getAnalystTakeaways(report.executiveSummary);
+
   return (
     <Card className="overflow-hidden p-5 md:p-6" glow>
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
@@ -66,7 +92,23 @@ function VerdictStrip({ report }: { report: WorldEngineReport }) {
             </Badge>
           </div>
           <h2 className="mt-4 text-2xl font-semibold text-white md:text-3xl">{report.headline}</h2>
-          <p className="mt-3 text-sm leading-7 text-white/62">{report.executiveSummary}</p>
+          <div className="mt-5 grid gap-3 md:grid-cols-[1.4fr_.9fr]">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+              <p className="text-[10px] uppercase tracking-[0.19em] text-white/38">Analyst takeaways</p>
+              <ul className="mt-3 grid gap-2">
+                {takeaways.map((takeaway, index) => (
+                  <li key={`${takeaway}-${index}`} className="flex gap-2 text-sm leading-6 text-white/64">
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-sentra-cyan" />
+                    <span>{takeaway}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-cyan-200/10 bg-cyan-300/[0.035] p-4">
+              <p className="text-[10px] uppercase tracking-[0.19em] text-cyan-100/52">Outlook</p>
+              <p className="mt-3 text-sm leading-6 text-white/62">{report.outlook}</p>
+            </div>
+          </div>
         </div>
         <div className="grid min-w-[300px] grid-cols-2 gap-3">
           {[
@@ -87,6 +129,36 @@ function VerdictStrip({ report }: { report: WorldEngineReport }) {
   );
 }
 
+function AnalystQuickAccess({ report }: { report: WorldEngineReport }) {
+  const visibleSections = analystSections.filter(([id]) => {
+    if (id === "analyst-radar") return report.visualizations.includes("radar");
+    if (id === "analyst-graph") return report.visualizations.includes("network");
+    if (id === "analyst-forecast") return report.visualizations.includes("forecast");
+    if (id === "analyst-regional") return report.visualizations.includes("sentiment");
+    if (id === "analyst-scenario") return report.scenarioMode && report.scenario.length;
+    return true;
+  });
+
+  return (
+    <Card className="sticky top-3 z-20 p-3" glow>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <p className="shrink-0 text-[10px] uppercase tracking-[0.22em] text-cyan-100/48">Quick access</p>
+        <nav className="flex gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible md:pb-0" aria-label="AI analyst sections">
+          {visibleSections.map(([id, label]) => (
+            <a
+              key={id}
+              href={`#${id}`}
+              className="sentra-focus shrink-0 rounded-full border border-white/10 bg-white/[0.045] px-3 py-1.5 text-xs text-white/58 transition hover:border-cyan-200/30 hover:text-white"
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
+      </div>
+    </Card>
+  );
+}
+
 function WorldMapPanel({
   signals,
   selected,
@@ -99,31 +171,61 @@ function WorldMapPanel({
   onFullscreen: () => void;
 }) {
   return (
-    <Card className="relative overflow-hidden p-4 md:p-5" glow>
+    <Card className="relative self-start overflow-hidden p-4 md:p-5" glow>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_40%_45%,rgba(83,244,255,.08),transparent_46%)]" />
       <div className="relative flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.23em] text-white/38">Dynamic globe intelligence map</p>
           <h3 className="mt-2 text-xl font-semibold text-white">Global activity field</h3>
         </div>
-        <Button variant="ghost" size="icon" onClick={onFullscreen} aria-label="Launch World Pulse Mode">
+        <Button variant="ghost" size="icon" onClick={onFullscreen} disabled={!signals.length} aria-label="Launch World Pulse Mode">
           <Expand className="h-4 w-4" />
         </Button>
       </div>
-      <div className="relative mt-2 h-[400px] md:h-[470px]">
-        <DynamicGlobe signals={signals} activeSignal={selected?.id} onSelect={onSelect} />
-        <div className="absolute bottom-2 left-2 right-2 rounded-2xl border border-white/10 bg-sentra-ink/72 p-3 backdrop-blur-xl">
-          {selected ? (
-            <>
-              <div className="flex items-center gap-2">
-                <Badge variant={selected.severity === "critical" ? "risk" : "cyan"}>{selected.severity}</Badge>
-                <p className="truncate text-sm font-medium text-white">{selected.title}</p>
-              </div>
-              <p className="mt-2 text-xs leading-5 text-white/56">{selected.region}: {selected.summary}</p>
-            </>
-          ) : (
-            <p className="text-xs text-white/52">Select a pulsing location to inspect its regional intelligence signal.</p>
-          )}
+      <div className="relative mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="relative h-[340px] overflow-hidden rounded-2xl border border-white/8 bg-black/15 md:h-[390px]">
+          <DynamicGlobe signals={signals} activeSignal={selected?.id} onSelect={onSelect} />
+          <div className="absolute bottom-2 left-2 right-2 rounded-2xl border border-white/10 bg-sentra-ink/72 p-3 backdrop-blur-xl">
+            {selected ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <Badge variant={selected.severity === "critical" ? "risk" : "cyan"}>{selected.severity}</Badge>
+                  <p className="min-w-0 break-words text-sm font-medium text-white">{selected.title}</p>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-white/56">{selected.region}: {selected.summary}</p>
+              </>
+            ) : (
+              <p className="text-xs leading-5 text-white/52">
+                {signals.length ? "Select a pulsing location to inspect its regional intelligence signal." : "No validated regional markers were returned for this prompt."}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-3">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-white/38">Regional markers</p>
+          <div className="mt-3 grid max-h-[330px] gap-2 overflow-y-auto pr-1">
+            {signals.length ? signals.map((signal) => (
+              <button
+                key={signal.id}
+                type="button"
+                onClick={() => onSelect(signal)}
+                className={cn(
+                  "sentra-focus rounded-xl border p-3 text-left transition",
+                  selected?.id === signal.id ? "border-cyan-200/30 bg-cyan-300/10" : "border-white/8 bg-black/10 hover:border-white/18",
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="min-w-0 break-words text-xs font-medium text-white/76">{signal.region}</p>
+                  <Badge variant={signal.severity === "critical" ? "risk" : "cyan"}>{signal.severity}</Badge>
+                </div>
+                <p className="mt-2 text-[11px] leading-4 text-white/48">{signal.title}</p>
+              </button>
+            )) : (
+              <p className="rounded-xl border border-amber-200/15 bg-amber-300/[0.04] p-3 text-xs leading-5 text-amber-100/70">
+                Ask for city, country, or regional signals to populate the globe.
+              </p>
+            )}
+          </div>
         </div>
       </div>
       <p className="relative mt-3 text-xs text-white/36">
@@ -252,9 +354,10 @@ export function WorldEngineStudio() {
     () => report?.signals.filter((signal) => domain === "all" || signal.domain === domain) ?? [],
     [domain, report],
   );
-  const activeSignal = selectedSignal && signals.some((signal) => signal.id === selectedSignal.id)
+  const displaySignals = signals.length ? signals : report?.signals ?? [];
+  const activeSignal = selectedSignal && displaySignals.some((signal) => signal.id === selectedSignal.id)
     ? selectedSignal
-    : signals[0];
+    : displaySignals[0];
 
   useEffect(() => () => {
     activityRequestRef.current?.abort();
@@ -471,7 +574,10 @@ export function WorldEngineStudio() {
 
       {!loading && report && (
         <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="grid gap-5" aria-label="AI World Engine report">
-          <VerdictStrip report={report} />
+          <section id="analyst-overview" className="scroll-mt-24">
+            <VerdictStrip report={report} />
+          </section>
+          <AnalystQuickAccess report={report} />
           <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
             <div className="flex flex-wrap items-center gap-2" aria-label="Signal filters">
               <Filter className="mr-1 h-4 w-4 text-white/40" />
@@ -482,7 +588,7 @@ export function WorldEngineStudio() {
               ))}
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setPulseMode(true)}><Expand className="h-4 w-4" /> World Pulse</Button>
+              <Button variant="ghost" size="sm" onClick={() => setPulseMode(true)} disabled={!report.signals.length}><Expand className="h-4 w-4" /> World Pulse</Button>
               <Button variant="ghost" size="sm" onClick={() => void shareSnapshot()}><Share2 className="h-4 w-4" /> Snapshot</Button>
               <Button variant="ghost" size="sm" onClick={() => window.print()}><Download className="h-4 w-4" /> Report PDF</Button>
             </div>
@@ -492,74 +598,104 @@ export function WorldEngineStudio() {
             AI-selected visualization stack:
             {report.visualizations.map((visualization) => <Badge key={visualization} variant="violet">{visualization}</Badge>)}
           </div>
-          <div className="grid gap-5 xl:grid-cols-[1.15fr_.85fr]">
-            <WorldMapPanel signals={signals.length ? signals : report.signals} selected={activeSignal} onSelect={(signal) => { setSelectedSignal(signal); soundPing(); }} onFullscreen={() => setPulseMode(true)} />
+          <div className="grid items-start gap-5 xl:grid-cols-[1.15fr_.85fr]">
+            <section id="analyst-map" className="scroll-mt-24">
+              <WorldMapPanel signals={displaySignals} selected={activeSignal} onSelect={(signal) => { setSelectedSignal(signal); soundPing(); }} onFullscreen={() => setPulseMode(true)} />
+            </section>
             <div className="grid gap-5">
-              {report.visualizations.includes("radar") && <SignalRadar report={report} />}
-              <ReasoningTimeline report={report} />
-            </div>
-          </div>
-          <div className="grid gap-5 xl:grid-cols-2">
-            {report.visualizations.includes("network") && <IntelligenceGraph report={report} />}
-            {report.visualizations.includes("forecast") && <ForecastEngine report={report} />}
-          </div>
-          <div className="grid gap-5 xl:grid-cols-[.7fr_1.3fr]">
-            {report.visualizations.includes("sentiment") && <SentimentSystem report={report} />}
-            <Card className="p-5 md:p-6" glow>
-              <p className="flex items-center gap-2 text-xs uppercase tracking-[0.23em] text-white/38"><AudioLines className="h-4 w-4 text-sentra-cyan" /> Brief Me</p>
-              <h3 className="mt-3 text-xl font-semibold text-white">AI Intelligence Narrator</h3>
-              <p className="mt-3 text-sm leading-7 text-white/57">{report.outlook}</p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                {[
-                  ["quick", "30-second briefing"],
-                  ["executive", "2-minute executive"],
-                  ["deep", "Deep analyst mode"],
-                ].map(([mode, label]) => (
-                  <button key={mode} type="button" disabled={synthesizing} onClick={() => void narrate(mode as "quick" | "executive" | "deep")} className="sentra-focus rounded-2xl border border-white/10 bg-white/[0.045] p-4 text-left text-sm text-white/68 transition hover:border-cyan-200/26 hover:bg-cyan-300/[0.07] hover:text-white disabled:cursor-wait disabled:opacity-50">
-                    <Play className="mb-3 h-4 w-4 text-sentra-cyan" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-              {narrationUrl && (
-                <div className="mt-5 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.045] p-4">
-                  <p className="mb-3 text-xs uppercase tracking-[0.2em] text-cyan-100/58">{narrationLabel} ready</p>
-                  <audio
-                    ref={audioRef}
-                    src={narrationUrl}
-                    controls
-                    className="w-full accent-cyan-300"
-                    onPlay={() => setSpeaking(true)}
-                    onPause={() => setSpeaking(false)}
-                    onEnded={() => setSpeaking(false)}
-                  />
-                </div>
+              {report.visualizations.includes("radar") && (
+                <section id="analyst-radar" className="scroll-mt-24">
+                  <SignalRadar report={report} />
+                </section>
               )}
-            </Card>
-          </div>
-          {report.visualizations.includes("scenario") && <ScenarioEngine report={report} />}
-          <Card className="p-5" glow>
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.23em] text-white/42">
-              <BrainCircuit className="h-4 w-4 text-sentra-cyan" /> Verification layer
+              <section id="analyst-reasoning" className="scroll-mt-24">
+                <ReasoningTimeline report={report} />
+              </section>
             </div>
-            {report.sources.length ? (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {report.sources.map((source, index) => (
-                  <a key={`${source.url}-${index}`} className="sentra-focus rounded-full border border-white/10 px-3 py-2 text-xs text-cyan-100 transition hover:bg-white/[0.06]" href={source.url} target="_blank" rel="noreferrer">
-                    {source.title}
-                  </a>
+          </div>
+          <div className="grid items-start gap-5 xl:grid-cols-2">
+            {report.visualizations.includes("network") && (
+              <section id="analyst-graph" className="scroll-mt-24">
+                <IntelligenceGraph report={report} />
+              </section>
+            )}
+            {report.visualizations.includes("forecast") && (
+              <section id="analyst-forecast" className="scroll-mt-24">
+                <ForecastEngine report={report} />
+              </section>
+            )}
+          </div>
+          <div className="grid items-start gap-5 xl:grid-cols-[.7fr_1.3fr]">
+            {report.visualizations.includes("sentiment") && (
+              <section id="analyst-regional" className="scroll-mt-24">
+                <SentimentSystem report={report} />
+              </section>
+            )}
+            <section id="analyst-narrator" className="scroll-mt-24">
+              <Card className="p-5 md:p-6" glow>
+                <p className="flex items-center gap-2 text-xs uppercase tracking-[0.23em] text-white/38"><AudioLines className="h-4 w-4 text-sentra-cyan" /> Brief Me</p>
+                <h3 className="mt-3 text-xl font-semibold text-white">AI Intelligence Narrator</h3>
+                <p className="mt-3 text-sm leading-7 text-white/57">{report.outlook}</p>
+                <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                  {[
+                    ["quick", "30-second briefing"],
+                    ["executive", "2-minute executive"],
+                    ["deep", "Deep analyst mode"],
+                  ].map(([mode, label]) => (
+                    <button key={mode} type="button" disabled={synthesizing} onClick={() => void narrate(mode as "quick" | "executive" | "deep")} className="sentra-focus rounded-2xl border border-white/10 bg-white/[0.045] p-4 text-left text-sm text-white/68 transition hover:border-cyan-200/26 hover:bg-cyan-300/[0.07] hover:text-white disabled:cursor-wait disabled:opacity-50">
+                      <Play className="mb-3 h-4 w-4 text-sentra-cyan" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {narrationUrl && (
+                  <div className="mt-5 rounded-2xl border border-cyan-200/15 bg-cyan-300/[0.045] p-4">
+                    <p className="mb-3 text-xs uppercase tracking-[0.2em] text-cyan-100/58">{narrationLabel} ready</p>
+                    <audio
+                      ref={audioRef}
+                      src={narrationUrl}
+                      controls
+                      className="w-full accent-cyan-300"
+                      onPlay={() => setSpeaking(true)}
+                      onPause={() => setSpeaking(false)}
+                      onEnded={() => setSpeaking(false)}
+                    />
+                  </div>
+                )}
+              </Card>
+            </section>
+          </div>
+          {report.visualizations.includes("scenario") && (
+            <section id="analyst-scenario" className="scroll-mt-24">
+              <ScenarioEngine report={report} />
+            </section>
+          )}
+          <section id="analyst-verification" className="scroll-mt-24">
+            <Card className="p-5" glow>
+              <div className="flex items-center gap-2 text-xs uppercase tracking-[0.23em] text-white/42">
+                <BrainCircuit className="h-4 w-4 text-sentra-cyan" /> Verification layer
+              </div>
+              {report.sources.length ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {report.sources.map((source, index) => (
+                    <a key={`${source.url}-${index}`} className="sentra-focus rounded-full border border-white/10 px-3 py-2 text-xs text-cyan-100 transition hover:bg-white/[0.06]" href={source.url} target="_blank" rel="noreferrer">
+                      {source.title}
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-white/50">No live sources are attached in demo mode. Configure data integrations before treating signals as current facts.</p>
+              )}
+              <div className="mt-4 grid gap-2 md:grid-cols-2">
+                {report.limitations.map((limitation, index) => (
+                  <p key={`${limitation}-${index}`} className="flex gap-2 text-xs leading-5 text-amber-100/60"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{limitation}</p>
                 ))}
               </div>
-            ) : (
-              <p className="mt-4 text-sm text-white/50">No live sources are attached in demo mode. Configure data integrations before treating signals as current facts.</p>
-            )}
-            <div className="mt-4 grid gap-2 md:grid-cols-2">
-              {report.limitations.map((limitation, index) => (
-                <p key={`${limitation}-${index}`} className="flex gap-2 text-xs leading-5 text-amber-100/60"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{limitation}</p>
-              ))}
-            </div>
-          </Card>
-          <AIActivityConsole logs={logs} sources={sources} thoughts={thoughts} health={health} running={false} />
+            </Card>
+          </section>
+          <section id="analyst-activity" className="scroll-mt-24">
+            <AIActivityConsole logs={logs} sources={sources} thoughts={thoughts} health={health} running={false} />
+          </section>
         </motion.div>
       )}
 

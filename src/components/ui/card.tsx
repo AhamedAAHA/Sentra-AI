@@ -8,8 +8,8 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "glass-panel rounded-3xl",
-      glow && "relative overflow-hidden before:absolute before:inset-x-8 before:-top-px before:h-px before:bg-gradient-to-r before:from-transparent before:via-sentra-cyan before:to-transparent",
+      "glass-panel rounded-[28px] transition-[border-color,background-color,box-shadow,transform] duration-500 ease-out",
+      glow && "relative overflow-hidden before:absolute before:inset-x-8 before:-top-px before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/40 before:to-transparent",
       className,
     )}
     {...props}
@@ -28,7 +28,7 @@ const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTML
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={cn("text-lg font-semibold tracking-tight text-white", className)}
+      className={cn("font-display text-lg font-semibold tracking-tight text-white", className)}
       {...props}
     />
   ),
