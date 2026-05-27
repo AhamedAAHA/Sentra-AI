@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/dashboard/app-shell";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { isDemoUserEmail, isSupabaseConfigured } from "@/lib/supabase/config";
 import { getServerClient } from "@/lib/supabase/server";
 
 export default async function WorkspaceLayout({
@@ -16,7 +16,7 @@ export default async function WorkspaceLayout({
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (user) {
+      if (user && !isDemoUserEmail(user.email)) {
         const { data: profile } = await supabase
           .from("profiles")
           .select("onboarding_completed")

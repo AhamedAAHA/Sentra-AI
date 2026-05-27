@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Code2, Mail, ShieldCheck } from "lucide-react";
+import { Code2, KeyRound, Mail, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { AiOrb } from "@/components/shared/ai-orb";
 import { ParticleField } from "@/components/shared/particle-field";
@@ -14,11 +14,14 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { createLocalAccount, markNewUserGuidePending, signInLocalAccount } from "@/lib/local-auth";
 import { safeRedirectPath } from "@/lib/safe-redirect";
+import { DEMO_USER_EMAIL } from "@/lib/supabase/config";
 import { getBrowserClient, isBrowserSupabaseConfigured } from "@/lib/supabase/client";
 
 type AuthShellProps = {
   mode: "sign-in" | "sign-up";
 };
+
+const DEMO_PASSWORD = "admin123";
 
 export function AuthShell({ mode }: AuthShellProps) {
   const router = useRouter();
@@ -156,6 +159,25 @@ export function AuthShell({ mode }: AuthShellProps) {
     }
   }
 
+  async function handleDemoSignIn() {
+    const supabase = getBrowserClient();
+    if (!supabase) return;
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: DEMO_USER_EMAIL,
+        password: DEMO_PASSWORD,
+      });
+      if (error) throw error;
+      router.push(nextPath);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Demo sign-in failed.");
+      setLoading(false);
+    }
+  }
+
   return (
     <main className="min-h-screen overflow-hidden">
       <ParticleField />
@@ -276,6 +298,21 @@ export function AuthShell({ mode }: AuthShellProps) {
               >
                 {magicLinkSent ? "Magic link sent — check your inbox" : "Send me a magic link instead"}
               </Button>
+            )}
+
+            {supabaseEnabled && !isSignUp && (
+              <div className="mt-6 rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.06] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-white">Demo access</p>
+                    <p className="mt-1 text-xs text-white/52">{DEMO_USER_EMAIL} / {DEMO_PASSWORD}</p>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" disabled={loading} onClick={handleDemoSignIn}>
+                    <KeyRound className="h-4 w-4" />
+                    Use demo
+                  </Button>
+                </div>
+              </div>
             )}
 
             <p className="mt-7 text-center text-sm text-white/50">
