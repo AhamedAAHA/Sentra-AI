@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Code2, KeyRound, Mail, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Code2, KeyRound, Mail, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { AiOrb } from "@/components/shared/ai-orb";
 import { ParticleField } from "@/components/shared/particle-field";
@@ -14,7 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { createLocalAccount, markNewUserGuidePending, signInLocalAccount } from "@/lib/local-auth";
 import { safeRedirectPath } from "@/lib/safe-redirect";
-import { DEMO_USER_EMAIL } from "@/lib/supabase/config";
+import { DEMO_USER_EMAIL, isDemoUserEmail } from "@/lib/supabase/config";
 import { getBrowserClient, isBrowserSupabaseConfigured } from "@/lib/supabase/client";
 
 type AuthShellProps = {
@@ -22,6 +22,11 @@ type AuthShellProps = {
 };
 
 const DEMO_PASSWORD = "admin123";
+
+type AuthCapabilities = {
+  providers: { email: boolean; google: boolean; github: boolean };
+  workspaceReady: boolean | null;
+};
 
 export function AuthShell({ mode }: AuthShellProps) {
   const router = useRouter();
@@ -33,10 +38,39 @@ export function AuthShell({ mode }: AuthShellProps) {
   const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [capabilities, setCapabilities] = useState<AuthCapabilities | null>(null);
   const nextPath = safeRedirectPath(searchParams.get("next"));
+  const authError = searchParams.get("error");
+  const checkingCapabilities = supabaseEnabled && !capabilities;
+  const workspaceUnavailable = supabaseEnabled && capabilities?.workspaceReady === false;
+  const hasSocialProvider = Boolean(capabilities?.providers.github || capabilities?.providers.google);
   const authToggleHref = isSignUp
     ? `/sign-in${nextPath !== "/dashboard" ? `?next=${encodeURIComponent(nextPath)}` : ""}`
     : `/sign-up${nextPath !== "/dashboard" ? `?next=${encodeURIComponent(nextPath)}` : ""}`;
+
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      void fetch("/api/auth/capabilities", { cache: "no-store", signal: controller.signal })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data: AuthCapabilities | null) => {
+          if (data) setCapabilities(data);
+        })
+        .catch(() => {
+          setCapabilities({
+            providers: { email: true, google: false, github: false },
+            workspaceReady: null,
+          });
+        });
+    }, 0);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
+  }, [supabaseEnabled]);
 
   async function handleLocalAuth() {
     setLoading(true);
@@ -71,6 +105,18 @@ export function AuthShell({ mode }: AuthShellProps) {
 
     const supabase = getBrowserClient();
     if (!supabase) return;
+
+    if (checkingCapabilities) {
+      toast.message("Checking workspace authentication setup. Please try again in a moment.");
+      return;
+    }
+
+    if (workspaceUnavailable && (isSignUp || !isDemoUserEmail(email))) {
+      toast.error("Workspace setup is incomplete.", {
+        description: "Apply the Supabase schema migration, or use the demo account for now.",
+      });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -112,6 +158,13 @@ export function AuthShell({ mode }: AuthShellProps) {
       return;
     }
 
+    if (workspaceUnavailable) {
+      toast.error("Magic link sign-in is unavailable until workspace setup is complete.", {
+        description: "Apply the Supabase schema migration, or use demo access.",
+      });
+      return;
+    }
+
     const supabase = getBrowserClient();
     if (!supabase) return;
 
@@ -137,6 +190,18 @@ export function AuthShell({ mode }: AuthShellProps) {
     if (!supabaseEnabled) {
       toast.message(`${provider} sign-in needs Supabase.`, {
         description: "Use local email and password until you add Supabase keys.",
+      });
+      return;
+    }
+
+    if (capabilities && !capabilities.providers[provider]) {
+      toast.error(`${provider === "google" ? "Google" : "GitHub"} sign-in is not enabled in Supabase.`);
+      return;
+    }
+
+    if (workspaceUnavailable) {
+      toast.error("Workspace setup is incomplete.", {
+        description: "Apply the Supabase schema migration before enabling cloud sign-in.",
       });
       return;
     }
@@ -219,32 +284,53 @@ export function AuthShell({ mode }: AuthShellProps) {
               </h2>
               <p className="mt-2 text-sm text-white/50">
                 {supabaseEnabled
-                  ? "Email, magic link, Google, or GitHub — your workspace syncs to Supabase."
+                  ? "Use an available authentication method below to access your workspace."
                   : "No Supabase keys detected. Use email and password for local browser auth."}
               </p>
             </div>
 
-            {supabaseEnabled && (
+            {authError && (
+              <div className="mb-6 flex gap-3 rounded-2xl border border-rose-300/20 bg-rose-400/10 p-4 text-sm text-rose-100">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>Sign-in could not be completed. The link may be expired, invalid, or missing redirect configuration.</p>
+              </div>
+            )}
+
+            {workspaceUnavailable && (
+              <div className="mb-6 flex gap-3 rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>
+                  Cloud workspace setup is incomplete. Run the Supabase database migration before creating real accounts.
+                  Demo access is available below.
+                </p>
+              </div>
+            )}
+
+            {supabaseEnabled && hasSocialProvider && (
               <>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="rounded-2xl"
-                    disabled={loading}
-                    onClick={() => handleOAuth("github")}
-                  >
-                    <Code2 className="h-4 w-4" /> GitHub
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="rounded-2xl"
-                    disabled={loading}
-                    onClick={() => handleOAuth("google")}
-                  >
-                    <Mail className="h-4 w-4" /> Google
-                  </Button>
+                  {capabilities?.providers.github && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="rounded-2xl"
+                      disabled={loading || workspaceUnavailable}
+                      onClick={() => handleOAuth("github")}
+                    >
+                      <Code2 className="h-4 w-4" /> GitHub
+                    </Button>
+                  )}
+                  {capabilities?.providers.google && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="rounded-2xl"
+                      disabled={loading || workspaceUnavailable}
+                      onClick={() => handleOAuth("google")}
+                    >
+                      <Mail className="h-4 w-4" /> Google
+                    </Button>
+                  )}
                 </div>
                 <div className="my-7 flex items-center gap-4">
                   <div className="h-px flex-1 bg-white/10" />
@@ -277,7 +363,13 @@ export function AuthShell({ mode }: AuthShellProps) {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />
-              <Button variant={supabaseEnabled ? "neon" : "ghost"} size="lg" className="mt-2" disabled={loading} type="submit">
+              <Button
+                variant={supabaseEnabled ? "neon" : "ghost"}
+                size="lg"
+                className="mt-2"
+                disabled={loading || checkingCapabilities || (isSignUp && workspaceUnavailable)}
+                type="submit"
+              >
                 {supabaseEnabled
                   ? isSignUp
                     ? "Create intelligence workspace"
@@ -288,7 +380,7 @@ export function AuthShell({ mode }: AuthShellProps) {
               </Button>
             </form>
 
-            {supabaseEnabled && (
+            {supabaseEnabled && capabilities?.providers.email !== false && !workspaceUnavailable && (
               <Button
                 type="button"
                 variant="ghost"

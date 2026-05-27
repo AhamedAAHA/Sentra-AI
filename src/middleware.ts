@@ -23,8 +23,9 @@ export async function middleware(request: NextRequest) {
 
   if (protectedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)) && !user) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/sign-up";
-    redirectUrl.searchParams.set("next", pathname);
+    redirectUrl.pathname = "/sign-in";
+    redirectUrl.search = "";
+    redirectUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(redirectUrl);
   }
 

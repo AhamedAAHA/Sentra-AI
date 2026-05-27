@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 
 type IntegrationStatus = {
   supabase: boolean;
+  supabaseSchema: boolean;
   openai: boolean;
   elevenlabs: boolean;
   brightData: {
@@ -42,7 +43,8 @@ export default function SettingsPage() {
       <Card className="p-6" glow>
         <h2 className="text-lg font-semibold text-white">Connection status</h2>
         <ul className="mt-5 space-y-4">
-          <StatusRow label="Supabase" ok={status?.supabase} />
+          <StatusRow label="Supabase credentials" ok={status?.supabase} />
+          <StatusRow label="Supabase workspace schema" ok={status?.supabaseSchema} />
           <StatusRow label="OpenAI" ok={status?.openai} />
           <StatusRow label="ElevenLabs" ok={status?.elevenlabs} />
           <StatusRow label="Bright Data API key" ok={status?.brightData.apiKey} />
@@ -52,6 +54,13 @@ export default function SettingsPage() {
         {status?.brightData.message && (
           <p className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/60">
             {status.brightData.message}
+          </p>
+        )}
+        {status?.supabase && !status.supabaseSchema && (
+          <p className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+            Authentication is connected, but workspace tables are missing. Run
+            {" "}<code className="font-mono text-xs">supabase/migrations/001_initial_schema.sql</code>{" "}
+            in the Supabase SQL Editor to enable regular accounts and saved data.
           </p>
         )}
         <Link
