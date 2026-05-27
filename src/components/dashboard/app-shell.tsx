@@ -68,6 +68,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     router.replace(`/sign-up?next=${encodeURIComponent(next)}`);
   }, [pathname, router, searchParams]);
 
+  useEffect(() => {
+    const prefetch = window.setTimeout(() => {
+      for (const item of nav) {
+        router.prefetch(item.href);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(prefetch);
+  }, [router]);
+
   return (
     <main className="min-h-screen">
       <ParticleField lite />
