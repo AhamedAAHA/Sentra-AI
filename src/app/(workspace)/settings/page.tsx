@@ -41,6 +41,7 @@ type IntegrationStatus = {
   };
   elevenlabs: boolean;
   aimlVoice?: boolean;
+  speechmaticsVoice?: boolean;
   featherless?: boolean;
   featherlessModels?: { chat: string; vision: string } | null;
   brightData: {
@@ -163,7 +164,7 @@ export default function SettingsPage() {
           </div>
           <div className="grid gap-2">
             <StatusLine label="AI/ML API (LLM)" ok={status?.aiml || status?.llm?.ready} />
-            <StatusLine label="AIML voice (TTS)" ok={status?.aimlVoice ?? status?.elevenlabs} />
+            <StatusLine label="Speechmatics voice (TTS)" ok={status?.speechmaticsVoice ?? status?.aimlVoice ?? status?.elevenlabs} />
             <StatusLine label="Bright Data API" ok={status?.brightData.apiKey} />
             <StatusLine label="Workspace database" ok={status?.supabaseSchema} />
           </div>
@@ -265,7 +266,7 @@ export default function SettingsPage() {
           />
           <StatusRow label="AI/ML API (LLM)" ok={status?.aiml || status?.llm?.ready} />
           <StatusRow label="Featherless (open models)" ok={status?.featherless} />
-          <StatusRow label="AIML voice (TTS)" ok={status?.aimlVoice ?? status?.elevenlabs} />
+          <StatusRow label="Speechmatics voice (TTS)" ok={status?.speechmaticsVoice ?? status?.aimlVoice ?? status?.elevenlabs} />
           <StatusRow label="Bright Data API key" ok={status?.brightData?.apiKey} />
           <StatusRow label="Bright Data SERP zone" ok={status?.brightData?.serpZone} />
           <StatusRow label="Bright Data Unlocker zone" ok={status?.brightData?.unlockerZone} />

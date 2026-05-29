@@ -1,9 +1,11 @@
+import type { VoiceMode } from "@/settings/settings-context";
 import { isAbortError, VOICE_ABORT_REASON } from "@/lib/voice/abort";
 import { splitSpeechChunks } from "@/lib/voice/speech-chunks";
 
 export type VoicePlaybackSettings = {
   volume: number;
   speed: number;
+  voiceMode: VoiceMode;
 };
 
 export type PipelinedVoiceStatus = "idle" | "loading" | "playing";
@@ -16,7 +18,7 @@ type FetchVoiceResult =
 async function fetchVoiceChunk(
   text: string,
   signal: AbortSignal,
-  speed: number,
+  voiceMode: VoiceMode,
 ): Promise<FetchVoiceResult> {
   if (signal.aborted) throw new DOMException(VOICE_ABORT_REASON, "AbortError");
 
@@ -24,7 +26,7 @@ async function fetchVoiceChunk(
     const response = await fetch("/api/voice", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, speed }),
+      body: JSON.stringify({ text, voiceMode }),
       signal,
     });
 
@@ -70,7 +72,7 @@ function playBlob(blob: Blob, settings: VoicePlaybackSettings, signal: AbortSign
 
     signal.addEventListener("abort", onAbort, { once: true });
     audio.volume = settings.volume;
-    audio.playbackRate = 1;
+    audio.playbackRate = Math.min(2, Math.max(0.5, settings.speed));
     audio.onended = () => {
       signal.removeEventListener("abort", onAbort);
       cleanup();
@@ -113,7 +115,7 @@ export async function playPipelinedVoice(
   const prefetch = new Map<number, Promise<FetchVoiceResult>>();
   const queueFetch = (index: number) => {
     if (index >= chunks.length || prefetch.has(index)) return;
-    prefetch.set(index, fetchVoiceChunk(chunks[index]!, signal, settings.speed));
+    prefetch.set(index, fetchVoiceChunk(chunks[index]!, signal, settings.voiceMode));
   };
 
   queueFetch(0);

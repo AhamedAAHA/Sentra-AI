@@ -357,7 +357,7 @@ export function ChatInterface() {
     try {
       const result = await playPipelinedVoice(
         content,
-        { volume: settings.voice.volume, speed: settings.voice.speed },
+        { volume: settings.voice.volume, speed: settings.voice.speed, voiceMode: settings.voice.mode },
         abortController.signal,
         {
           onStatus: (status) => {
@@ -372,7 +372,7 @@ export function ChatInterface() {
 
       if (result === "demo") {
         toast.message("Voice is still in demo mode", {
-          description: "Set AIML_API_KEY in .env.local and restart npm run dev.",
+          description: "Add SPEECHMATICS_API_KEY to the Supabase vault (npm run secrets:rotate).",
         });
         speakingTimeoutRef.current = window.setTimeout(finishVoicePlayback, 1800);
         return;

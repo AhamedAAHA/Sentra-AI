@@ -15,6 +15,7 @@ import {
   getFeatherlessVisionModel,
   isFeatherlessConfigured,
 } from "@/lib/llm/featherless";
+import { isSpeechmaticsConfigured } from "@/services/speechmatics-tts";
 import { discoverBrightDataZones } from "@/services/bright-data";
 import {
   ensurePlatformSecrets,
@@ -71,8 +72,9 @@ export function getIntegrationStatus() {
           }
         : null,
     },
-    elevenlabs: isAimlConfigured(),
-    aimlVoice: isAimlConfigured(),
+    elevenlabs: isSpeechmaticsConfigured(),
+    aimlVoice: isSpeechmaticsConfigured(),
+    speechmaticsVoice: isSpeechmaticsConfigured(),
     featherless: isFeatherlessConfigured(),
     featherlessModels: isFeatherlessConfigured()
       ? {

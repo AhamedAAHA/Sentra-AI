@@ -59,13 +59,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const idleCallback =
       "requestIdleCallback" in window
         ? window.requestIdleCallback(preloadWorkspaceRoutes, { timeout: 1200 })
-        : window.setTimeout(preloadWorkspaceRoutes, 250);
+        : globalThis.setTimeout(preloadWorkspaceRoutes, 250);
 
     return () => {
       if ("cancelIdleCallback" in window && typeof idleCallback === "number") {
         window.cancelIdleCallback(idleCallback);
       } else {
-        window.clearTimeout(idleCallback);
+        globalThis.clearTimeout(idleCallback);
       }
     };
   }, [prefetchRoute]);

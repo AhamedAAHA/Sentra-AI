@@ -381,7 +381,7 @@ export function InvestigationStudio() {
       const response = await fetch("/api/voice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: reportNarrationText(report) }),
+        body: JSON.stringify({ text: reportNarrationText(report), voiceMode: settings.voice.mode }),
         signal: abortController.signal,
       });
       if (abortController.signal.aborted || voiceRunIdRef.current !== runId) return;

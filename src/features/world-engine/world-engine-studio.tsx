@@ -526,13 +526,13 @@ export function WorldEngineStudio() {
     setSynthesizing(true);
     setSpeaking(false);
     setActiveNarrationMode(mode);
-    appendClientLog("VOICE", `Requesting ${mode} intelligence narration.`, "Voice synthesis", "info", "AIML TTS");
-    updateSource({ id: "aiml-voice", name: "AIML Voice", channel: "api", status: "active", detail: "Synthesis request in flight" });
+    appendClientLog("VOICE", `Requesting ${mode} intelligence narration.`, "Voice synthesis", "info", "Speechmatics TTS");
+    updateSource({ id: "speechmatics-voice", name: "Speechmatics Voice", channel: "api", status: "active", detail: "Synthesis request in flight" });
     try {
       const response = await fetch("/api/voice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: report.briefings[mode] }),
+        body: JSON.stringify({ text: report.briefings[mode], voiceMode: settings.voice.mode }),
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
@@ -547,17 +547,17 @@ export function WorldEngineStudio() {
           return nextUrl;
         });
         setNarrationLabel(`${mode === "quick" ? "30-second" : mode === "executive" ? "Executive" : "Deep analyst"} briefing`);
-        updateSource({ id: "aiml-voice", name: "AIML Voice", channel: "api", status: "success", detail: "Audio stream received" });
-        appendClientLog("VOICE", "Spoken intelligence briefing generated and ready for playback.", "Voice synthesis", "success", "AIML TTS");
+        updateSource({ id: "speechmatics-voice", name: "Speechmatics Voice", channel: "api", status: "success", detail: "Audio stream received" });
+        appendClientLog("VOICE", "Spoken intelligence briefing generated and ready for playback.", "Voice synthesis", "success", "Speechmatics TTS");
       } else {
-        updateSource({ id: "aiml-voice", name: "AIML Voice", channel: "api", status: "unavailable", detail: "Demo mode: AIML_API_KEY not configured" });
-        appendClientLog("VOICE", "Voice provider unavailable; narration script remains available.", "Voice synthesis", "warning", "AIML TTS");
-        toast.message("Narrator script ready", { description: "Set AIML_API_KEY in .env.local for spoken playback." });
+        updateSource({ id: "speechmatics-voice", name: "Speechmatics Voice", channel: "api", status: "unavailable", detail: "Demo mode: SPEECHMATICS_API_KEY not configured" });
+        appendClientLog("VOICE", "Voice provider unavailable; narration script remains available.", "Voice synthesis", "warning", "Speechmatics TTS");
+        toast.message("Narrator script ready", { description: "Add SPEECHMATICS_API_KEY to the Supabase vault for spoken playback." });
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      updateSource({ id: "aiml-voice", name: "AIML Voice", channel: "api", status: "error", detail: "Synthesis request failed" });
-      appendClientLog("VOICE", "Voice synthesis request failed.", "Voice synthesis", "error", "AIML TTS");
+      updateSource({ id: "speechmatics-voice", name: "Speechmatics Voice", channel: "api", status: "error", detail: "Synthesis request failed" });
+      appendClientLog("VOICE", "Voice synthesis request failed.", "Voice synthesis", "error", "Speechmatics TTS");
       toast.error(error instanceof Error ? error.message : "Voice narration failed.");
     } finally {
       if (!controller.signal.aborted) {

@@ -1,14 +1,21 @@
-import { AimlTtsError, synthesizeAimlSpeech } from "@/services/aiml-tts";
+import {
+  isSpeechmaticsConfigured,
+  SpeechmaticsTtsError,
+  synthesizeSpeechmaticsSpeech,
+} from "@/services/speechmatics-tts";
+import type { VoiceMode } from "@/settings/settings-context";
 
-export { AimlTtsError };
+export { SpeechmaticsTtsError };
 
-/** Primary voice provider: AIML TTS (uses AIML_API_KEY). */
-export async function synthesizeSpeech(text: string, playbackSpeed = 1) {
+/** Primary voice provider: Speechmatics TTS (uses SPEECHMATICS_API_KEY). */
+export async function synthesizeSpeech(text: string, voiceMode?: VoiceMode) {
+  if (!isSpeechmaticsConfigured()) return null;
+
   try {
-    return await synthesizeAimlSpeech(text, playbackSpeed);
+    return await synthesizeSpeechmaticsSpeech(text, voiceMode);
   } catch (error) {
-    if (error instanceof AimlTtsError) throw error;
-    console.warn("AIML voice synthesis unavailable", error);
+    if (error instanceof SpeechmaticsTtsError) throw error;
+    console.warn("Speechmatics voice synthesis unavailable", error);
     return null;
   }
 }

@@ -1,5 +1,5 @@
 /** Strip markdown noise and split into short speakable chunks for low-latency TTS. */
-/** Short chunks = faster first audio byte from AIML TTS. */
+/** Short chunks = faster first audio byte from Speechmatics TTS. */
 export function splitSpeechChunks(text: string, maxChunkLength = 150) {
   const plain = text
     .replace(/```[\s\S]*?```/g, " ")
