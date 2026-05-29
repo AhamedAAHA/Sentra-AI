@@ -1,3 +1,4 @@
+import { isAbortError, VOICE_ABORT_REASON } from "@/lib/voice/abort";
 import { splitSpeechChunks } from "@/lib/voice/speech-chunks";
 
 export type VoicePlaybackSettings = {
@@ -13,23 +14,32 @@ type FetchVoiceResult =
   | { kind: "error"; message: string };
 
 async function fetchVoiceChunk(text: string, signal: AbortSignal): Promise<FetchVoiceResult> {
-  const response = await fetch("/api/voice", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
-    signal,
-  });
+  if (signal.aborted) throw new DOMException(VOICE_ABORT_REASON, "AbortError");
 
-  if (!response.ok) {
-    const data = (await response.json().catch(() => null)) as { error?: string } | null;
-    return { kind: "error", message: data?.error ?? "Voice synthesis failed." };
+  try {
+    const response = await fetch("/api/voice", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+      signal,
+    });
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      return { kind: "error", message: data?.error ?? "Voice synthesis failed." };
+    }
+
+    if (response.headers.get("content-type")?.includes("audio")) {
+      return { kind: "audio", blob: await response.blob() };
+    }
+
+    return { kind: "demo" };
+  } catch (error) {
+    if (isAbortError(error) || signal.aborted) {
+      throw new DOMException(VOICE_ABORT_REASON, "AbortError");
+    }
+    throw error;
   }
-
-  if (response.headers.get("content-type")?.includes("audio")) {
-    return { kind: "audio", blob: await response.blob() };
-  }
-
-  return { kind: "demo" };
 }
 
 function playBlob(blob: Blob, settings: VoicePlaybackSettings, signal: AbortSignal) {
@@ -45,12 +55,12 @@ function playBlob(blob: Blob, settings: VoicePlaybackSettings, signal: AbortSign
 
     const onAbort = () => {
       cleanup();
-      reject(new DOMException("Aborted", "AbortError"));
+      reject(new DOMException(VOICE_ABORT_REASON, "AbortError"));
     };
 
     if (signal.aborted) {
       cleanup();
-      reject(new DOMException("Aborted", "AbortError"));
+      reject(new DOMException(VOICE_ABORT_REASON, "AbortError"));
       return;
     }
 
@@ -101,7 +111,14 @@ export async function playPipelinedVoice(
   for (let index = 0; index < chunks.length; index += 1) {
     if (signal.aborted) return "cancelled" as const;
 
-    const current = await nextFetch;
+    let current: FetchVoiceResult;
+    try {
+      current = await nextFetch;
+    } catch (error) {
+      if (isAbortError(error) || signal.aborted) return "cancelled" as const;
+      throw error;
+    }
+
     if (signal.aborted) return "cancelled" as const;
 
     if (current.kind === "error") {
@@ -121,7 +138,12 @@ export async function playPipelinedVoice(
     callbacks?.onStatus?.("playing", `Speaking ${index + 1} of ${chunks.length}`);
     callbacks?.onChunkStart?.(index + 1, chunks.length);
 
-    await playBlob(current.blob, settings, signal);
+    try {
+      await playBlob(current.blob, settings, signal);
+    } catch (error) {
+      if (isAbortError(error) || signal.aborted) return "cancelled" as const;
+      throw error;
+    }
   }
 
   callbacks?.onStatus?.("idle");

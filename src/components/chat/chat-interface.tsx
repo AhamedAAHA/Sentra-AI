@@ -17,6 +17,7 @@ import { usePipelineLogs } from "@/hooks/use-pipeline-logs";
 import { useSpeechInput } from "@/hooks/use-speech-input";
 import { useTypewriter } from "@/hooks/use-typewriter";
 import { chatPipelineScript } from "@/lib/pipeline-log-scripts";
+import { abortVoiceController, isAbortError } from "@/lib/voice/abort";
 import { playPipelinedVoice } from "@/lib/voice/pipelined-playback";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/settings/settings-context";
@@ -120,10 +121,7 @@ export function ChatInterface() {
     getContext: () => input,
   });
 
-  function resetVoicePlayback() {
-    voiceRunIdRef.current += 1;
-    voiceAbortRef.current?.abort();
-    voiceAbortRef.current = null;
+  function finishVoicePlayback() {
     currentVoiceTextRef.current = null;
     setActiveVoiceText(null);
     if (speakingTimeoutRef.current) {
@@ -140,6 +138,14 @@ export function ChatInterface() {
       audioUrlRef.current = null;
     }
     setVoiceStatus("idle");
+  }
+
+  function resetVoicePlayback() {
+    voiceRunIdRef.current += 1;
+    const controller = voiceAbortRef.current;
+    voiceAbortRef.current = null;
+    abortVoiceController(controller);
+    finishVoicePlayback();
   }
 
   useEffect(() => {
@@ -274,9 +280,8 @@ export function ChatInterface() {
     }
 
     resetVoicePlayback();
-    const runId = voiceRunIdRef.current + 1;
+    const runId = voiceRunIdRef.current;
     const abortController = new AbortController();
-    voiceRunIdRef.current = runId;
     voiceAbortRef.current = abortController;
     currentVoiceTextRef.current = content;
     setActiveVoiceText(content);
@@ -296,21 +301,22 @@ export function ChatInterface() {
       );
 
       if (abortController.signal.aborted || voiceRunIdRef.current !== runId) return;
+      if (result === "cancelled") return;
 
       if (result === "demo") {
         toast.message("Voice is still in demo mode", {
           description: "Restart the dev server so Next.js reloads your ElevenLabs key.",
         });
-        speakingTimeoutRef.current = window.setTimeout(resetVoicePlayback, 1800);
+        speakingTimeoutRef.current = window.setTimeout(finishVoicePlayback, 1800);
         return;
       }
 
       if (result === "completed" || result === "empty") {
-        resetVoicePlayback();
+        finishVoicePlayback();
       }
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      resetVoicePlayback();
+      if (isAbortError(error) || voiceRunIdRef.current !== runId) return;
+      finishVoicePlayback();
       const blockedAutoplay =
         options?.automatic &&
         error instanceof DOMException &&
