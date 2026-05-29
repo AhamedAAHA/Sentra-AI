@@ -57,7 +57,24 @@ export type ExecutiveIntelligenceReport = {
   hallucinationRisk: "low" | "medium" | "high";
 };
 
-export type ChatProvider = "aiml-search" | "aiml-bright-data" | "openai-web-search" | "bright-data-openai";
+export type ChatProvider =
+  | "aiml-search"
+  | "aiml-bright-data"
+  | "aiml-document"
+  | "aiml-document-bright-data"
+  | "openai-web-search"
+  | "bright-data-openai";
+
+export type ChatDocumentAttachment = {
+  fileName: string;
+  mimeType: string;
+  charCount?: number;
+  truncated?: boolean;
+};
+
+export type ChatDocumentEvidence = ChatDocumentAttachment & {
+  text: string;
+};
 
 export type ChatMessage = {
   id: string;
@@ -65,6 +82,7 @@ export type ChatMessage = {
   content: string;
   createdAt: string;
   provider?: ChatProvider;
+  attachment?: ChatDocumentAttachment;
 };
 
 export type BrightDataRequest = {

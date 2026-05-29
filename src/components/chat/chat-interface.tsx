@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import type { Components } from "react-markdown";
 import { motion } from "framer-motion";
-import { Bot, Mic2, MicOff, Send, Sparkles, Volume2 } from "lucide-react";
+import { Bot, FileText, Mic2, MicOff, Paperclip, Send, Sparkles, Volume2, X } from "lucide-react";
 import { toast } from "sonner";
 import { AiOrb } from "@/components/shared/ai-orb";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,7 @@ import { abortVoiceController, isAbortError } from "@/lib/voice/abort";
 import { playPipelinedVoice } from "@/lib/voice/pipelined-playback";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/settings/settings-context";
-import type { ChatMessage, ChatProvider } from "@/types/intelligence";
+import type { ChatDocumentEvidence, ChatMessage, ChatProvider } from "@/types/intelligence";
 
 const prompts = [
   "Analyze Tesla competitors",
@@ -93,6 +93,9 @@ export function ChatInterface() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [liveChatReady, setLiveChatReady] = useState<boolean | null>(null);
+  const [attachedDocument, setAttachedDocument] = useState<ChatDocumentEvidence | null>(null);
+  const [parsingDocument, setParsingDocument] = useState(false);
+  const documentInputRef = useRef<HTMLInputElement | null>(null);
   const [voiceStatus, setVoiceStatus] = useState<"idle" | "loading" | "playing">("idle");
   const [activeVoiceText, setActiveVoiceText] = useState<string | null>(null);
   const handledPromptRef = useRef<string | null>(null);
@@ -212,20 +215,65 @@ export function ChatInterface() {
     messagesEndRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
   }, [messages, loading]);
 
+  async function handleDocumentSelect(file: File | null) {
+    if (!file || parsingDocument) return;
+
+    setParsingDocument(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/documents/parse", { method: "POST", body: formData });
+      const data = (await response.json()) as {
+        document?: ChatDocumentEvidence;
+        error?: string;
+      };
+
+      if (!response.ok || !data.document?.text) {
+        throw new Error(data.error ?? "Could not read document.");
+      }
+
+      setAttachedDocument(data.document);
+      toast.success(`Attached ${data.document.fileName}`, {
+        description: data.document.truncated
+          ? "Large file trimmed for analysis context."
+          : `${data.document.charCount?.toLocaleString() ?? ""} characters loaded.`,
+      });
+    } catch (error) {
+      toast.error("Document upload failed.", {
+        description: error instanceof Error ? error.message : "Please try another file.",
+      });
+    } finally {
+      setParsingDocument(false);
+      if (documentInputRef.current) documentInputRef.current.value = "";
+    }
+  }
+
   async function sendMessage(nextInput = input) {
     const trimmed = nextInput.trim();
-    if (!trimmed || loading) return;
+    const document = attachedDocument;
+    if ((!trimmed && !document) || loading) return;
     stopSpeechInput();
+
+    const displayContent = trimmed || `Analyze the uploaded document: ${document!.fileName}`;
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
-      content: trimmed,
+      content: displayContent,
       createdAt: new Date().toISOString(),
+      attachment: document
+        ? {
+            fileName: document.fileName,
+            mimeType: document.mimeType,
+            charCount: document.charCount,
+            truncated: document.truncated,
+          }
+        : undefined,
     };
 
     setMessages((current) => [...current, userMessage]);
     setInput("");
+    setAttachedDocument(null);
     setLoading(true);
     pipeline.start();
 
@@ -233,7 +281,13 @@ export function ChatInterface() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed, history: messages, threadId, brightData: settings.brightData }),
+        body: JSON.stringify({
+          message: displayContent,
+          history: messages,
+          threadId,
+          brightData: settings.brightData,
+          document: document ?? undefined,
+        }),
       });
       const data = (await response.json()) as {
         message?: string;
@@ -394,11 +448,15 @@ export function ChatInterface() {
                         <span className="text-sm font-medium text-white">Sentra AI</span>
                         {message.provider && (
                           <span className="hidden rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-white/45 sm:inline-flex">
-                            {message.provider === "aiml-bright-data" || message.provider === "bright-data-openai"
-                              ? "Bright Data + AIML"
-                              : message.provider === "aiml-search"
-                                ? "AIML live search"
-                                : "Live web search"}
+                            {message.provider === "aiml-document-bright-data"
+                              ? "Document + Bright Data"
+                              : message.provider === "aiml-document"
+                                ? "Document analysis"
+                                : message.provider === "aiml-bright-data" || message.provider === "bright-data-openai"
+                                  ? "Bright Data + AIML"
+                                  : message.provider === "aiml-search"
+                                    ? "AIML live search"
+                                    : "Live web search"}
                           </span>
                         )}
                         <button
@@ -428,7 +486,15 @@ export function ChatInterface() {
                     {message.role === "assistant" ? (
                       <AssistantMessage content={message.content} animated={message.id === lastAssistantId} />
                     ) : (
-                      <p className="break-words text-sm leading-6 text-white/80">{message.content}</p>
+                      <div>
+                        {message.attachment && (
+                          <p className="mb-2 flex items-center gap-2 text-xs text-sentra-cyan/90">
+                            <FileText className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{message.attachment.fileName}</span>
+                          </p>
+                        )}
+                        <p className="break-words text-sm leading-6 text-white/80">{message.content}</p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -457,7 +523,28 @@ export function ChatInterface() {
                 </button>
               ))}
             </div>
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_4rem_4rem]">
+            {attachedDocument && (
+              <div className="mb-3 flex items-center gap-2 rounded-2xl border border-cyan-200/20 bg-cyan-300/[0.06] px-3 py-2 text-sm text-cyan-50/90">
+                <FileText className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{attachedDocument.fileName}</span>
+                <button
+                  type="button"
+                  className="rounded-full p-1 text-white/50 transition hover:bg-white/10 hover:text-white"
+                  onClick={() => setAttachedDocument(null)}
+                  aria-label="Remove attached document"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+            <input
+              ref={documentInputRef}
+              type="file"
+              className="hidden"
+              accept=".pdf,.docx,.txt,.md,.csv,application/pdf,text/plain,text/markdown,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={(event) => void handleDocumentSelect(event.target.files?.[0] ?? null)}
+            />
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
               <Textarea
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
@@ -467,10 +554,29 @@ export function ChatInterface() {
                     sendMessage();
                   }
                 }}
-                placeholder="Ask Sentra to analyze competitors, monitor a market, or brief leadership..."
+                placeholder={
+                  attachedDocument
+                    ? "Ask about this document, or press Send to summarize it..."
+                    : "Ask Sentra to analyze competitors, monitor a market, or brief leadership..."
+                }
                 className="min-h-24 sm:min-h-16"
               />
-              <div className="grid grid-cols-2 gap-3 sm:contents">
+              <div className="grid grid-cols-3 gap-3 sm:contents">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-14 w-full shrink-0 sm:h-16 sm:w-16"
+                  onClick={() => documentInputRef.current?.click()}
+                  disabled={parsingDocument || loading}
+                  aria-label="Attach PDF or document"
+                >
+                  {parsingDocument ? (
+                    <Sparkles className="h-5 w-5 animate-pulse" />
+                  ) : (
+                    <Paperclip className="h-5 w-5" />
+                  )}
+                </Button>
                 {settings.voice.microphone && (
                   <Button
                     type="button"
@@ -495,7 +601,7 @@ export function ChatInterface() {
                   size="icon"
                   className="h-14 w-full shrink-0 sm:h-16 sm:w-16"
                   onClick={() => sendMessage()}
-                  disabled={loading || !input.trim()}
+                  disabled={loading || (!input.trim() && !attachedDocument)}
                   aria-label="Send message"
                 >
                   <Send className="h-5 w-5" />
@@ -511,7 +617,7 @@ export function ChatInterface() {
                   ? "Microphone input is disabled in Settings."
                   : transcribing
                   ? "Refining transcript..."
-                  : "Tip: include a URL or words like monitor, competitor, or pricing to collect evidence with Bright Data first."}
+                  : "Attach PDF, DOCX, TXT, MD, or CSV. Include a URL or words like monitor or competitor for Bright Data collection."}
             </p>
           </div>
         </Card>

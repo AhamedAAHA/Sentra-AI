@@ -5,7 +5,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { isLlmConfigured } from "@/lib/llm/client";
 import { collectWebIntelligence } from "@/services/bright-data";
 import { generateChatResponse } from "@/services/openai";
-import type { BrightDataRequest, ChatMessage, ChatProvider } from "@/types/intelligence";
+import type { BrightDataRequest, ChatDocumentEvidence, ChatMessage, ChatProvider } from "@/types/intelligence";
 
 export const runtime = "nodejs";
 
@@ -62,16 +62,27 @@ export async function POST(request: Request) {
       message?: string;
       history?: unknown;
       threadId?: string;
+      document?: ChatDocumentEvidence;
       brightData?: {
         serp?: boolean;
         scraper?: boolean;
         webUnlocker?: boolean;
       };
     };
-    const message = body.message?.trim();
+
+    const documentEvidence =
+      body.document?.text?.trim() && body.document.fileName
+        ? {
+            fileName: body.document.fileName,
+            text: body.document.text.trim(),
+            truncated: body.document.truncated,
+          }
+        : undefined;
+
+    const message = (body.message?.trim() || (documentEvidence ? "Analyze the uploaded document." : "")).trim();
 
     if (!message) {
-      return NextResponse.json({ error: "Message is required" }, { status: 400 });
+      return NextResponse.json({ error: "Message or document is required." }, { status: 400 });
     }
 
     if (message.length > MAX_MESSAGE_LENGTH) {
@@ -88,7 +99,7 @@ export async function POST(request: Request) {
       );
     }
 
-    let provider: ChatProvider = "aiml-search";
+    let provider: ChatProvider = documentEvidence ? "aiml-document" : "aiml-search";
     let brightDataEvidence: string | undefined;
     const collectionRequest = getCollectionRequest(message);
 
@@ -101,7 +112,7 @@ export async function POST(request: Request) {
     if (collectionRequest && brightDataEnabled) {
       const evidence = await collectWebIntelligence(collectionRequest);
       if (evidence.provider === "bright-data") {
-        provider = "aiml-bright-data";
+        provider = documentEvidence ? "aiml-document-bright-data" : "aiml-bright-data";
         brightDataEvidence = evidence.evidence;
       }
     }
@@ -109,6 +120,7 @@ export async function POST(request: Request) {
     const response = await generateChatResponse(message, {
       history: getHistory(body.history),
       brightDataEvidence,
+      documentEvidence,
     });
 
     let threadId = body.threadId;
@@ -119,9 +131,12 @@ export async function POST(request: Request) {
       }
 
       if (threadId) {
+        const userContent = documentEvidence
+          ? `[Document: ${documentEvidence.fileName}]\n${message}`
+          : message;
         await appendChatMessage(auth.supabase, auth.user.id, threadId, {
           role: "user",
-          content: message,
+          content: userContent,
         });
         await appendChatMessage(auth.supabase, auth.user.id, threadId, {
           role: "assistant",
