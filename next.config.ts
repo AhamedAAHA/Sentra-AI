@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ["pdf-parse"],
   experimental: {
-    optimizePackageImports: ["lucide-react", "framer-motion", "recharts"],
+    optimizePackageImports: ["lucide-react", "recharts"],
   },
   async redirects() {
     return [{ source: "/features", destination: "/services", permanent: true }];

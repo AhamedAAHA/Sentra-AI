@@ -8,13 +8,36 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+function loadLocalEnv() {
+  const envPath = path.join(root, ".env.local");
+  if (!fs.existsSync(envPath)) return;
+
+  const lines = fs.readFileSync(envPath, "utf8").split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const separator = trimmed.indexOf("=");
+    if (separator === -1) continue;
+
+    const key = trimmed.slice(0, separator).trim();
+    const rawValue = trimmed.slice(separator + 1).trim();
+    if (!key || process.env[key]) continue;
+
+    process.env[key] = rawValue.replace(/^(['"])(.*)\1$/, "$2");
+  }
+}
+
+loadLocalEnv();
+
 const connectionString = process.env.DATABASE_URL?.trim();
 if (!connectionString) {
   console.error("Set DATABASE_URL to your Supabase direct connection string.");
   process.exit(1);
 }
 
-const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const migrationsDir = path.join(root, "supabase", "migrations");
 const files = fs
   .readdirSync(migrationsDir)
