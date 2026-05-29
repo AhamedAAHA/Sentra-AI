@@ -135,7 +135,7 @@ remain functional.
 1. Create a project at [supabase.com](https://supabase.com).
 2. Run the SQL in `supabase/migrations/001_initial_schema.sql` in the SQL editor.
 3. Enable Email, Magic Link, Google, and GitHub providers in Authentication.
-4. Set redirect URL: `http://localhost:3000/auth/callback` (and your production URL).
+4. Set redirect URL: `http://localhost:3001/auth/callback` (and your production URL).
 
 ## Hackathon demo script
 
