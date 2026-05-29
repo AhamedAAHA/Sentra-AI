@@ -56,8 +56,8 @@ function CoreSystem() {
         <torusGeometry args={[1.92, 0.012, 18, 160]} />
         <meshStandardMaterial color="#8b7cff" emissive="#8b7cff" emissiveIntensity={0.75} roughness={0.28} />
       </mesh>
-      <mesh ref={ringC} rotation={[0.2, Math.PI / 2, 0.2]}>
-        <torusGeometry args={[2.32, 0.01, 18, 180]} />
+      <mesh ref={ringC} rotation={[0.18, Math.PI / 2, 0.18]}>
+        <torusGeometry args={[2.02, 0.01, 18, 180]} />
         <meshStandardMaterial color="#ff65dd" emissive="#ff65dd" emissiveIntensity={0.55} roughness={0.3} />
       </mesh>
       {nodes.map((node, index) => (
@@ -75,7 +75,7 @@ export function HeroVisual() {
     <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[2rem]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(83,244,255,0.18),transparent_38%),radial-gradient(circle_at_65%_70%,rgba(168,85,247,0.18),transparent_46%)] blur-xl" />
       <Canvas
-        camera={{ position: [0, 0.25, 6.2], fov: 36 }}
+        camera={{ position: [0, 0.2, 6.8], fov: 34 }}
         dpr={[1, 1.75]}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       >
