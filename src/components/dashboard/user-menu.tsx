@@ -39,7 +39,6 @@ function getInitialProfile() {
   return {
     ...stored,
     displayName: stored.displayName ?? session?.displayName,
-    avatarUrl: stored.avatarUrl ?? session?.avatarUrl,
   };
 }
 
@@ -70,11 +69,6 @@ export function UserMenu() {
   const avatarSrc = profile.avatarUrl;
 
   useEffect(() => {
-<<<<<<< HEAD
-    if (!isBrowserSupabaseConfigured()) {
-      return;
-    }
-=======
     const timeout = window.setTimeout(() => {
       repairLocalStorageQuota();
       const stored = getUserProfile();
@@ -88,7 +82,6 @@ export function UserMenu() {
         }
         return;
       }
->>>>>>> 7144c619b3557fc165a587b42b50db5cbe4e3c7b
 
       const supabase = getBrowserClient();
       if (!supabase) return;
@@ -118,14 +111,11 @@ export function UserMenu() {
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
-<<<<<<< HEAD
 
   function toggleMenu() {
     if (!open) setEditName(profile.displayName || "");
     setOpen((current) => !current);
   }
-=======
->>>>>>> 7144c619b3557fc165a587b42b50db5cbe4e3c7b
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -186,14 +176,7 @@ export function UserMenu() {
     <div className="relative hidden md:block">
       <button
         ref={triggerRef}
-<<<<<<< HEAD
         onClick={toggleMenu}
-=======
-        onClick={() => {
-          if (!open) setEditName(profile.displayName || "");
-          setOpen(!open);
-        }}
->>>>>>> 7144c619b3557fc165a587b42b50db5cbe4e3c7b
         className="flex max-w-[200px] items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs text-white/60 transition hover:bg-white/[0.09]"
       >
         {avatarSrc ? (
