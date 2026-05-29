@@ -121,7 +121,7 @@ function normalizeMonitorIntent(input: string, parsed: Partial<MonitorIntent>): 
       typeof parsed.confidence === "number" && Number.isFinite(parsed.confidence)
         ? Math.min(Math.max(parsed.confidence, 0), 1)
         : 0.75,
-    provider: llmProvider === "aiml" ? "aiml" : llmProvider === "openai" ? "openai" : "openai",
+    provider: llmProvider === "aiml" ? "aiml" : "heuristic",
   };
 }
 
@@ -162,7 +162,7 @@ export async function analyzeMonitorIntent(input: string): Promise<MonitorIntent
 export async function transcribeAudio(file: File, context?: string) {
   const client = getLlmClient();
   if (!client) {
-    throw new Error("Configure AIML_API_KEY (or OPENAI_API_KEY) to use microphone transcription.");
+    throw new Error("Configure AIML_API_KEY in .env.local to use microphone transcription.");
   }
 
   try {

@@ -90,7 +90,7 @@ function threatLevel(value: unknown): ThreatLevel {
 }
 
 function visionSourceLabel(): ImageInvestigationReport["source"] {
-  return getLlmProviderLabel() === "aiml" ? "aiml-vision" : "openai-vision";
+  return getLlmProviderLabel() === "aiml" ? "aiml-vision" : "demo";
 }
 
 function normalizeModelReport(
@@ -248,6 +248,7 @@ export async function analyzeImageInvestigation({ prompt, images }: AnalyzeImage
   try {
     return await analyzeWithChatCompletions(client, prompt, images, files);
   } catch (error) {
+    if (getLlmProviderLabel() === "aiml") throw error;
     console.warn("Vision chat.completions failed, trying responses API", error);
     return analyzeWithResponsesApi(client, prompt, images, files);
   }

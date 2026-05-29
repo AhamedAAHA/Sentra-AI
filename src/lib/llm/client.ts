@@ -6,44 +6,32 @@ export function isAimlConfigured() {
   return Boolean(process.env.AIML_API_KEY?.trim());
 }
 
+/** LLM is ready only when AIML is configured (no direct OpenAI fallback). */
 export function isLlmConfigured() {
-  return Boolean(process.env.AIML_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim());
+  return isAimlConfigured();
 }
 
-/** Prefer AIML hackathon key; optional legacy OpenAI key as fallback. */
+/** All LLM traffic routes through AI/ML API (OpenAI-compatible gateway). */
 export function getLlmClient(): OpenAI | null {
   const aimlKey = process.env.AIML_API_KEY?.trim();
-  if (aimlKey) {
-    return new OpenAI({
-      apiKey: aimlKey,
-      baseURL: process.env.AIML_BASE_URL?.trim() || AIML_DEFAULT_BASE_URL,
-    });
-  }
+  if (!aimlKey) return null;
 
-  const openaiKey = process.env.OPENAI_API_KEY?.trim();
-  if (openaiKey) {
-    return new OpenAI({ apiKey: openaiKey });
-  }
-
-  return null;
+  return new OpenAI({
+    apiKey: aimlKey,
+    baseURL: process.env.AIML_BASE_URL?.trim() || AIML_DEFAULT_BASE_URL,
+  });
 }
 
-export function getLlmProviderLabel(): "aiml" | "openai" | null {
-  if (isAimlConfigured()) return "aiml";
-  if (process.env.OPENAI_API_KEY?.trim()) return "openai";
-  return null;
+export function getLlmProviderLabel(): "aiml" | null {
+  return isAimlConfigured() ? "aiml" : null;
 }
 
 export function getAnalysisModel() {
-  return (
-    process.env.AIML_MODEL_ANALYSIS?.trim() ||
-    process.env.OPENAI_MONITOR_INTENT_MODEL?.trim() ||
-    "gpt-4o-mini"
-  );
+  return process.env.AIML_MODEL_ANALYSIS?.trim() || "gpt-4o-mini";
 }
 
 export function getChatModel() {
-  return process.env.AIML_MODEL_CHAT?.trim() || process.env.OPENAI_CHAT_MODEL?.trim() || "gpt-4o";
+  return process.env.AIML_MODEL_CHAT?.trim() || "gpt-4o";
 }
 
 export function getSearchModel() {
@@ -51,32 +39,19 @@ export function getSearchModel() {
 }
 
 export function getIntentModel() {
-  return (
-    process.env.AIML_MODEL_INTENT?.trim() ||
-    process.env.OPENAI_MONITOR_INTENT_MODEL?.trim() ||
-    "gpt-4o-mini"
-  );
+  return process.env.AIML_MODEL_INTENT?.trim() || "gpt-4o-mini";
 }
 
 export function getWorldModel() {
-  return (
-    process.env.AIML_MODEL_WORLD?.trim() ||
-    process.env.OPENAI_WORLD_MODEL?.trim() ||
-    process.env.OPENAI_CHAT_MODEL?.trim() ||
-    "gpt-4o"
-  );
+  return process.env.AIML_MODEL_WORLD?.trim() || "gpt-4o";
 }
 
 export function getVisionModel() {
-  return process.env.AIML_MODEL_VISION?.trim() || process.env.OPENAI_VISION_MODEL?.trim() || "gpt-4o";
+  return process.env.AIML_MODEL_VISION?.trim() || "gpt-4o";
 }
 
 export function getTranscribeModel() {
-  return (
-    process.env.AIML_MODEL_TRANSCRIBE?.trim() ||
-    process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() ||
-    "gpt-4o-transcribe"
-  );
+  return process.env.AIML_MODEL_TRANSCRIBE?.trim() || "whisper-1";
 }
 
 /** Search / reasoning models on AIML often reject temperature and other sampling params. */

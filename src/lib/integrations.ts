@@ -42,7 +42,7 @@ export function getIntegrationStatus() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim(),
     ),
     aiml: isAimlConfigured(),
-    openai: Boolean(process.env.OPENAI_API_KEY?.trim()),
+    openai: false,
     llm: {
       ready: llmReady,
       provider: getLlmProviderLabel(),

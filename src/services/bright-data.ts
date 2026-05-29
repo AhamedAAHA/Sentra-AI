@@ -77,25 +77,35 @@ async function writeCache(cacheKey: string, value: BrightDataEvidence) {
   }
 }
 
-export async function discoverBrightDataZones(apiKey: string) {
-  try {
-    const response = await axios.get<BrightDataZone[]>("https://api.brightdata.com/zone/get_active_zones", {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        Accept: "application/json",
-      },
-      timeout: 15000,
-    });
+async function fetchActiveBrightDataZones(apiKey: string) {
+  const response = await axios.get<BrightDataZone[]>("https://api.brightdata.com/zone/get_active_zones", {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
+    },
+    timeout: 15000,
+  });
 
-    const zones = response.data ?? [];
-    return {
-      serp: zones.find((zone) => zone.type === "serp")?.name,
-      unlocker: zones.find((zone) => zone.type === "unblocker" || zone.type === "unlocker")?.name,
-    };
-  } catch (error) {
-    console.error("Unable to discover Bright Data zones", error);
-    return {};
+  const zones = response.data ?? [];
+  return {
+    serp: zones.find((zone) => zone.type === "serp")?.name,
+    unlocker: zones.find((zone) => zone.type === "unblocker" || zone.type === "unlocker")?.name,
+  };
+}
+
+export async function discoverBrightDataZones(apiKey: string): Promise<{ serp?: string; unlocker?: string }> {
+  const managementKey = process.env.BRIGHT_DATA_MANAGEMENT_KEY?.trim();
+  const keys = [apiKey, managementKey].filter(Boolean) as string[];
+
+  for (const key of keys) {
+    try {
+      return await fetchActiveBrightDataZones(key);
+    } catch (error) {
+      console.error("Unable to discover Bright Data zones with provided key", error);
+    }
   }
+
+  return {};
 }
 
 async function resolveBrightDataZones(apiKey: string) {
