@@ -10,6 +10,11 @@ import {
   isAimlConfigured,
   isLlmConfigured,
 } from "@/lib/llm/client";
+import {
+  getFeatherlessChatModel,
+  getFeatherlessVisionModel,
+  isFeatherlessConfigured,
+} from "@/lib/llm/featherless";
 import { discoverBrightDataZones } from "@/services/bright-data";
 
 function buildBrightDataStatus(serpZone: boolean, unlockerZone: boolean, brightDataKey: boolean) {
@@ -60,6 +65,13 @@ export function getIntegrationStatus() {
     },
     elevenlabs: isAimlConfigured(),
     aimlVoice: isAimlConfigured(),
+    featherless: isFeatherlessConfigured(),
+    featherlessModels: isFeatherlessConfigured()
+      ? {
+          chat: getFeatherlessChatModel(),
+          vision: getFeatherlessVisionModel(),
+        }
+      : null,
     brightData: buildBrightDataStatus(serpZone, unlockerZone, brightDataKey),
   };
 }

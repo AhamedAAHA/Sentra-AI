@@ -40,6 +40,8 @@ type IntegrationStatus = {
   };
   elevenlabs: boolean;
   aimlVoice?: boolean;
+  featherless?: boolean;
+  featherlessModels?: { chat: string; vision: string } | null;
   brightData: {
     apiKey: boolean;
     serpZone: boolean;
@@ -257,6 +259,7 @@ export default function SettingsPage() {
           <StatusRow label="Supabase credentials" ok={status?.supabase} />
           <StatusRow label="Supabase workspace schema" ok={status?.supabaseSchema} />
           <StatusRow label="AI/ML API (LLM)" ok={status?.aiml || status?.llm?.ready} />
+          <StatusRow label="Featherless (open models)" ok={status?.featherless} />
           <StatusRow label="AIML voice (TTS)" ok={status?.aimlVoice ?? status?.elevenlabs} />
           <StatusRow label="Bright Data API key" ok={status?.brightData?.apiKey} />
           <StatusRow label="Bright Data SERP zone" ok={status?.brightData?.serpZone} />

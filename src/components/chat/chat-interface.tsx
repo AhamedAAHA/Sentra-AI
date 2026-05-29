@@ -234,9 +234,11 @@ export function ChatInterface() {
 
       setAttachedDocument(data.document);
       toast.success(`Attached ${data.document.fileName}`, {
-        description: data.document.truncated
-          ? "Large file trimmed for analysis context."
-          : `${data.document.charCount?.toLocaleString() ?? ""} characters loaded.`,
+        description: data.document.ocrUsed
+          ? "Smart OCR extracted text (AIML or Featherless vision)."
+          : data.document.truncated
+            ? "Large file trimmed for analysis context."
+            : `${data.document.charCount?.toLocaleString() ?? ""} characters loaded.`,
       });
     } catch (error) {
       toast.error("Document upload failed.", {
@@ -267,6 +269,7 @@ export function ChatInterface() {
             mimeType: document.mimeType,
             charCount: document.charCount,
             truncated: document.truncated,
+            ocrUsed: document.ocrUsed,
           }
         : undefined,
     };
@@ -448,11 +451,15 @@ export function ChatInterface() {
                         <span className="text-sm font-medium text-white">Sentra AI</span>
                         {message.provider && (
                           <span className="hidden rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-white/45 sm:inline-flex">
-                            {message.provider === "aiml-document-bright-data"
-                              ? "Document + Bright Data"
-                              : message.provider === "aiml-document"
-                                ? "Document analysis"
-                                : message.provider === "aiml-bright-data" || message.provider === "bright-data-openai"
+                            {message.provider === "featherless-document-bright-data"
+                              ? "Featherless + Bright Data"
+                              : message.provider === "featherless-document"
+                                ? "Featherless document"
+                                : message.provider === "aiml-document-bright-data"
+                                  ? "Document + Bright Data"
+                                  : message.provider === "aiml-document"
+                                    ? "Document analysis"
+                                    : message.provider === "aiml-bright-data" || message.provider === "bright-data-openai"
                                   ? "Bright Data + AIML"
                                   : message.provider === "aiml-search"
                                     ? "AIML live search"
@@ -526,7 +533,10 @@ export function ChatInterface() {
             {attachedDocument && (
               <div className="mb-3 flex items-center gap-2 rounded-2xl border border-cyan-200/20 bg-cyan-300/[0.06] px-3 py-2 text-sm text-cyan-50/90">
                 <FileText className="h-4 w-4 shrink-0" />
-                <span className="min-w-0 flex-1 truncate">{attachedDocument.fileName}</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {attachedDocument.fileName}
+                  {attachedDocument.ocrUsed ? " · OCR" : ""}
+                </span>
                 <button
                   type="button"
                   className="rounded-full p-1 text-white/50 transition hover:bg-white/10 hover:text-white"
@@ -541,7 +551,7 @@ export function ChatInterface() {
               ref={documentInputRef}
               type="file"
               className="hidden"
-              accept=".pdf,.docx,.txt,.md,.csv,application/pdf,text/plain,text/markdown,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              accept=".pdf,.docx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,application/pdf,text/plain,text/markdown,text/csv,image/png,image/jpeg,image/webp,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               onChange={(event) => void handleDocumentSelect(event.target.files?.[0] ?? null)}
             />
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
@@ -617,7 +627,7 @@ export function ChatInterface() {
                   ? "Microphone input is disabled in Settings."
                   : transcribing
                   ? "Refining transcript..."
-                  : "Attach PDF, DOCX, TXT, MD, or CSV. Include a URL or words like monitor or competitor for Bright Data collection."}
+                  : "Attach PDF, DOCX, TXT, or images (smart OCR). Include a URL or monitor/competitor keywords for Bright Data."}
             </p>
           </div>
         </Card>

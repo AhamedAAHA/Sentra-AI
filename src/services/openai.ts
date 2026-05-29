@@ -10,8 +10,16 @@ import {
   getSearchFallbackModel,
   getSearchModel,
   getTranscribeModel,
+  isAimlConfigured,
   isLlmConfigured,
 } from "@/lib/llm/client";
+import {
+  getAgentInferenceClient,
+  getFeatherlessClient,
+  getFeatherlessChatModel,
+  getFeatherlessFastModel,
+  isFeatherlessConfigured,
+} from "@/lib/llm/featherless";
 import { sliceDocumentForContext } from "@/lib/documents/extract-text";
 import type { ChatMessage, IntelligenceAnalysis, MonitorIntent, Severity } from "@/types/intelligence";
 
@@ -117,7 +125,7 @@ function normalizeMonitorIntent(input: string, parsed: Partial<MonitorIntent>): 
         .map((keyword) => keyword.trim().slice(0, 48))
         .slice(0, 8)
     : [];
-  const llmProvider = getLlmProviderLabel();
+  const llmProvider = isFeatherlessConfigured() ? "featherless" : getLlmProviderLabel();
 
   return {
     normalizedRequirement: parsed.normalizedRequirement?.trim() || input.trim(),
@@ -129,8 +137,21 @@ function normalizeMonitorIntent(input: string, parsed: Partial<MonitorIntent>): 
       typeof parsed.confidence === "number" && Number.isFinite(parsed.confidence)
         ? Math.min(Math.max(parsed.confidence, 0), 1)
         : 0.75,
-    provider: llmProvider === "aiml" ? "aiml" : "heuristic",
+    provider:
+      llmProvider === "aiml" ? "aiml" : isFeatherlessConfigured() ? "featherless" : "heuristic",
   };
+}
+
+function getEvidenceInference() {
+  const featherless = getFeatherlessClient();
+  if (featherless) {
+    return { client: featherless, model: getFeatherlessChatModel(), provider: "featherless" as const };
+  }
+  const aiml = getLlmClient();
+  if (aiml) {
+    return { client: aiml, model: getChatModel(), provider: "aiml" as const };
+  }
+  return null;
 }
 
 export async function analyzeMonitorIntent(input: string): Promise<MonitorIntent> {
@@ -139,13 +160,17 @@ export async function analyzeMonitorIntent(input: string): Promise<MonitorIntent
     throw new Error("Monitor input is required.");
   }
 
-  const client = getLlmClient();
-  if (!client) {
+  const inference = getAgentInferenceClient() ?? getLlmClient();
+  if (!inference) {
     return inferMonitorIntentHeuristically(trimmed);
   }
 
-  const response = await createChatCompletion(client, {
-    model: getIntentModel(),
+  const intentModel = isFeatherlessConfigured()
+    ? getFeatherlessFastModel()
+    : getIntentModel();
+
+  const response = await createChatCompletion(inference, {
+    model: intentModel,
     temperature: 0.1,
     response_format: { type: "json_object" },
     messages: [
@@ -199,16 +224,20 @@ export async function generateEnterpriseAnalysis(
   query: string,
   webEvidence: string,
 ): Promise<IntelligenceAnalysis> {
-  const client = getLlmClient();
-  if (!client) {
+  const inference = getAgentInferenceClient() ?? getLlmClient();
+  if (!inference) {
     return {
       ...demoAnalysis,
       summary: `${demoAnalysis.summary} Demo analysis generated for: "${query}".`,
     };
   }
 
-  const response = await createChatCompletion(client, {
-    model: getAnalysisModel(),
+  const analysisModel = isFeatherlessConfigured()
+    ? getFeatherlessChatModel()
+    : getAnalysisModel();
+
+  const response = await createChatCompletion(inference, {
+    model: analysisModel,
     temperature: 0.35,
     response_format: { type: "json_object" },
     messages: [
@@ -306,9 +335,14 @@ function buildChatMessages(message: string, context?: ChatContext) {
   return messages;
 }
 
-async function generateChatWithEvidence(client: ReturnType<typeof getLlmClient>, message: string, context?: ChatContext) {
-  const response = await createChatCompletion(client!, {
-    model: getChatModel(),
+async function generateChatWithEvidence(
+  client: NonNullable<ReturnType<typeof getLlmClient>>,
+  message: string,
+  context?: ChatContext,
+  model?: string,
+) {
+  const response = await createChatCompletion(client, {
+    model: model ?? getChatModel(),
     temperature: 0.35,
     messages: buildChatMessages(message, context),
   });
@@ -399,16 +433,27 @@ async function repairHowToDeflection(
 }
 
 export async function generateChatResponse(message: string, context?: ChatContext) {
-  const client = getLlmClient();
-  if (!client) {
-    throw new Error("Configure AIML_API_KEY to use live chat answers.");
+  if (context?.documentEvidence || context?.brightDataEvidence) {
+    const inference = getEvidenceInference();
+    if (!inference) {
+      throw new Error("Configure FEATHERLESS_API_KEY or AIML_API_KEY for document analysis.");
+    }
+    return generateChatWithEvidence(inference.client, message, context, inference.model);
   }
 
-  if (context?.documentEvidence || context?.brightDataEvidence) {
-    return generateChatWithEvidence(client, message, context);
+  const client = getLlmClient();
+  if (!client || !isAimlConfigured()) {
+    throw new Error("Configure AIML_API_KEY for live web search chat.");
   }
 
   return generateChatWithSearch(client, message, context);
+}
+
+export function resolveDocumentChatProvider(hasBrightData: boolean) {
+  if (isFeatherlessConfigured()) {
+    return hasBrightData ? ("featherless-document-bright-data" as const) : ("featherless-document" as const);
+  }
+  return hasBrightData ? ("aiml-document-bright-data" as const) : ("aiml-document" as const);
 }
 
 export { getLlmClient as getOpenAIClient, isLlmConfigured };

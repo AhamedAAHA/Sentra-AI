@@ -62,6 +62,8 @@ export type ChatProvider =
   | "aiml-bright-data"
   | "aiml-document"
   | "aiml-document-bright-data"
+  | "featherless-document"
+  | "featherless-document-bright-data"
   | "openai-web-search"
   | "bright-data-openai";
 
@@ -70,6 +72,7 @@ export type ChatDocumentAttachment = {
   mimeType: string;
   charCount?: number;
   truncated?: boolean;
+  ocrUsed?: boolean;
 };
 
 export type ChatDocumentEvidence = ChatDocumentAttachment & {
@@ -100,5 +103,5 @@ export type MonitorIntent = {
   keywords: string[];
   rationale: string;
   confidence: number;
-  provider: "aiml" | "openai" | "heuristic";
+  provider: "aiml" | "featherless" | "openai" | "heuristic";
 };

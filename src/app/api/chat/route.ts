@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/session";
 import { appendChatMessage, createChatThread } from "@/lib/db/chat";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { isLlmConfigured } from "@/lib/llm/client";
+import { isAimlConfigured, isLlmConfigured } from "@/lib/llm/client";
 import { collectWebIntelligence } from "@/services/bright-data";
-import { generateChatResponse } from "@/services/openai";
+import { generateChatResponse, resolveDocumentChatProvider } from "@/services/openai";
 import type { BrightDataRequest, ChatDocumentEvidence, ChatMessage, ChatProvider } from "@/types/intelligence";
 
 export const runtime = "nodejs";
@@ -93,13 +93,24 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Live chat requires AIML_API_KEY in .env.local (from aimlapi.com). Restart npm run dev after saving.",
+            "Configure FEATHERLESS_API_KEY and/or AIML_API_KEY in .env.local, then restart npm run dev.",
         },
         { status: 503 },
       );
     }
 
-    let provider: ChatProvider = documentEvidence ? "aiml-document" : "aiml-search";
+    if (!documentEvidence && !isAimlConfigured()) {
+      return NextResponse.json(
+        {
+          error: "Live web chat requires AIML_API_KEY. Document-only chat can use Featherless.",
+        },
+        { status: 503 },
+      );
+    }
+
+    let provider: ChatProvider = documentEvidence
+      ? resolveDocumentChatProvider(false)
+      : "aiml-search";
     let brightDataEvidence: string | undefined;
     const collectionRequest = getCollectionRequest(message);
 
@@ -112,8 +123,10 @@ export async function POST(request: Request) {
     if (collectionRequest && brightDataEnabled) {
       const evidence = await collectWebIntelligence(collectionRequest);
       if (evidence.provider === "bright-data") {
-        provider = documentEvidence ? "aiml-document-bright-data" : "aiml-bright-data";
         brightDataEvidence = evidence.evidence;
+        provider = documentEvidence
+          ? resolveDocumentChatProvider(true)
+          : "aiml-bright-data";
       }
     }
 

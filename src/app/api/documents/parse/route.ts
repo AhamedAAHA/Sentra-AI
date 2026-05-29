@@ -31,6 +31,7 @@ export async function POST(request: Request) {
         text: parsed.text,
         truncated: parsed.truncated,
         charCount: parsed.charCount,
+        ocrUsed: parsed.ocrUsed,
       },
     });
   } catch (error) {

@@ -8,6 +8,9 @@ export const ACCEPTED_DOCUMENT_MIME = new Set([
   "text/markdown",
   "text/csv",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
 ]);
 
 export type ParsedDocument = {
@@ -16,6 +19,7 @@ export type ParsedDocument = {
   text: string;
   truncated: boolean;
   charCount: number;
+  ocrUsed?: boolean;
 };
 
 function normalizeText(text: string) {
@@ -30,6 +34,9 @@ function resolveKind(fileName: string, mimeType: string) {
     lower.endsWith(".docx")
   ) {
     return "docx" as const;
+  }
+  if (mimeType.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(lower)) {
+    return "image" as const;
   }
   if (
     mimeType.startsWith("text/") ||
@@ -57,17 +64,29 @@ export async function extractDocumentFromBuffer(
 
   const kind = resolveKind(fileName, mimeType);
   if (!kind) {
-    throw new Error("Unsupported file type. Upload PDF, DOCX, TXT, MD, or CSV.");
+    throw new Error("Unsupported file type. Upload PDF, DOCX, TXT, MD, CSV, or images (PNG/JPEG/WebP).");
   }
 
   let raw = "";
+  let ocrUsed = false;
 
-  if (kind === "pdf") {
+  if (kind === "image") {
+    const { ocrImageBuffer } = await import("@/lib/documents/vision-ocr");
+    const imageMime =
+      mimeType.startsWith("image/") ? mimeType : `image/${fileName.split(".").pop() === "png" ? "png" : "jpeg"}`;
+    raw = (await ocrImageBuffer(buffer, imageMime, fileName)).text;
+    ocrUsed = true;
+  } else if (kind === "pdf") {
+    const { needsOcrFallback, ocrPdfBuffer } = await import("@/lib/documents/vision-ocr");
     const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({ data: buffer });
     try {
       const parsed = await parser.getText();
       raw = parsed.text ?? "";
+      if (needsOcrFallback(raw)) {
+        raw = await ocrPdfBuffer(buffer, fileName);
+        ocrUsed = true;
+      }
     } finally {
       await parser.destroy().catch(() => undefined);
     }
@@ -93,13 +112,14 @@ export async function extractDocumentFromBuffer(
     text,
     truncated,
     charCount: text.length,
+    ocrUsed,
   };
 }
 
 export async function extractDocumentFromFile(file: File): Promise<ParsedDocument> {
   const mimeType = file.type || "application/octet-stream";
   if (!ACCEPTED_DOCUMENT_MIME.has(mimeType) && !resolveKind(file.name, mimeType)) {
-    throw new Error("Unsupported file type. Upload PDF, DOCX, TXT, MD, or CSV.");
+    throw new Error("Unsupported file type. Upload PDF, DOCX, TXT, MD, CSV, or images.");
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());

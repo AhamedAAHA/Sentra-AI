@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { isFeatherlessConfigured } from "@/lib/llm/featherless";
 
 const AIML_DEFAULT_BASE_URL = "https://api.aimlapi.com/v1";
 
@@ -6,9 +7,9 @@ export function isAimlConfigured() {
   return Boolean(process.env.AIML_API_KEY?.trim());
 }
 
-/** LLM is ready only when AIML is configured (no direct OpenAI fallback). */
+/** At least one inference provider is configured. */
 export function isLlmConfigured() {
-  return isAimlConfigured();
+  return isAimlConfigured() || isFeatherlessConfigured();
 }
 
 /** All LLM traffic routes through AI/ML API (OpenAI-compatible gateway). */
