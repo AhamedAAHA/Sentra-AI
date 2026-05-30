@@ -273,7 +273,7 @@ export default function SettingsPage() {
             ok={status?.secretsSource === "supabase" || status?.aiml}
           />
           <StatusRow label="AI/ML API (LLM)" ok={status?.aiml || status?.llm?.ready} />
-          <StatusRow label="Featherless (open models)" ok={status?.featherless} />
+          <StatusRow label="Featherless (open models)" ok={status?.featherless} optional />
           <StatusRow label="Speechmatics voice (TTS)" ok={status?.speechmaticsVoice ?? status?.aimlVoice ?? status?.elevenlabs} />
           <StatusRow label="Speechmatics STT" ok={status?.speechmaticsStt ?? status?.speechmaticsVoice} />
           <StatusRow label="Bright Data API key" ok={status?.brightData?.apiKey} />
