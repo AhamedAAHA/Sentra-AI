@@ -114,9 +114,3 @@ export function AutomationWebhookPanel({
     </div>
   );
 }
-
-/** @deprecated Use AutomationWebhookPanel */
-export const CrmExportButton = AutomationWebhookPanel;
-
-/** @deprecated Use AutomationWebhookPanel */
-export const TriggerWareAutomationButton = AutomationWebhookPanel;

@@ -1,16 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { MultiMarketChart } from "@/components/dashboard/multi-market-chart";
 import { ProviderUsageChart } from "@/components/dashboard/provider-usage-chart";
 

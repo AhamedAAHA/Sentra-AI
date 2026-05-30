@@ -51,9 +51,6 @@ export type ClaimSourceRecord = {
 
 export type ClaimVerificationStatus = "evidence-backed" | "partial" | "unsupported";
 
-/** @deprecated Use ClaimVerificationStatus — kept for legacy report JSON */
-export type LegacyClaimStatus = "verified" | "partial" | "unsupported";
-
 export type VerifiedClaim = {
   id: string;
   claim: string;

@@ -18,14 +18,3 @@ export function getBrowserClient(): SupabaseClient | null {
 
   return browserClient;
 }
-
-/** @deprecated Prefer getBrowserClient() — throws if used without env configured. */
-export function createClient(): SupabaseClient {
-  const client = getBrowserClient();
-  if (!client) {
-    throw new Error(
-      "Supabase is not configured. For local development, leave URL/key empty and use Enter workspace (local mode) on sign-in.",
-    );
-  }
-  return client;
-}
