@@ -126,7 +126,7 @@ export default function DashboardPage() {
               <Activity className="h-7 w-7 text-sentra-cyan" />
               <h3 className="mt-5 text-2xl font-semibold text-white">GTM command center</h3>
               <p className="mt-3 text-sm leading-6 text-white/55">
-                Account context, battlecard analysis, MCP research agent, and monitor creation live in Monitors.
+                Monitors, webhooks, executive reports, and automation triggers live in Alerts.
               </p>
               <Button asChild variant="neon" className="mt-5">
                 <Link href="/alerts#gtm-workspace">

@@ -64,27 +64,3 @@ export const demoAnalysis: IntelligenceAnalysis = {
   confidenceScore: 0.89,
   signals: signalStream,
 };
-
-export const trendData = [
-  { name: "Mon", market: 62, sentiment: 74, risk: 28 },
-  { name: "Tue", market: 68, sentiment: 70, risk: 35 },
-  { name: "Wed", market: 78, sentiment: 76, risk: 44 },
-  { name: "Thu", market: 73, sentiment: 82, risk: 39 },
-  { name: "Fri", market: 86, sentiment: 79, risk: 52 },
-  { name: "Sat", market: 91, sentiment: 84, risk: 47 },
-  { name: "Sun", market: 96, sentiment: 88, risk: 61 },
-];
-
-export const competitorData = [
-  { name: "Tesla", share: 38, velocity: 82 },
-  { name: "Rivian", share: 18, velocity: 56 },
-  { name: "BYD", share: 31, velocity: 74 },
-  { name: "Lucid", share: 13, velocity: 43 },
-];
-
-export const briefingCards = [
-  "Competitor product launch probability increased to 72%.",
-  "Hiring velocity suggests three AI startups are preparing enterprise GTM expansion.",
-  "Market conversation shifted from experimentation to measurable cost reduction.",
-  "Sentiment risk is concentrated in pricing, procurement, and data governance threads.",
-];

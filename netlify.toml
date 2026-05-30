@@ -17,7 +17,7 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Long-running API routes (cron, GTM research, battlecard)
+# Long-running API routes (cron, monitors, world-engine)
 [functions]
   node_bundler = "esbuild"
 

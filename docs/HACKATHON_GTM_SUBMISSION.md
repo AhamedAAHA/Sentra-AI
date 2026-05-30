@@ -23,7 +23,7 @@ Sentra is built on Next.js 15, Supabase (auth + persistence + API key vault), an
 | **Web Unlocker** | HTTPS competitor URLs in chat, monitors, World Engine |
 | **Web Scraper / Unlocker** | Multi-source GTM bundles (uses Unlocker zone when no dedicated scraper zone) |
 | **Scraping Browser** | JS-heavy competitor pages when zone configured |
-| **Bright Data MCP** | `search_engine` + `scrape_as_markdown` via `/api/agent/gtm-research` |
+| **Bright Data MCP** | `search_engine` + `scrape_as_markdown` via chat and monitor research (`runGtmResearch`) |
 | **Scraper Studio** (optional) | `BRIGHT_DATA_STUDIO_COLLECTOR_ID` when collector built in CP |
 
 Promo code: `unlocked` on [brightdata.com](https://brightdata.com).  
