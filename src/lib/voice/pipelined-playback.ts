@@ -1,32 +1,40 @@
 import type { VoiceMode } from "@/settings/settings-context";
 import { isAbortError, VOICE_ABORT_REASON } from "@/lib/voice/abort";
+import { speakWithBrowser } from "@/lib/voice/browser-tts";
+import { supportsSpeechmaticsTts } from "@/lib/voice/languages";
 import { splitSpeechChunks } from "@/lib/voice/speech-chunks";
 
 export type VoicePlaybackSettings = {
   volume: number;
   speed: number;
   voiceMode: VoiceMode;
+  language: string;
 };
 
 export type PipelinedVoiceStatus = "idle" | "loading" | "playing";
 
 type FetchVoiceResult =
   | { kind: "audio"; blob: Blob }
+  | { kind: "browser" }
   | { kind: "demo" }
   | { kind: "error"; message: string };
 
 async function fetchVoiceChunk(
   text: string,
   signal: AbortSignal,
-  voiceMode: VoiceMode,
+  settings: VoicePlaybackSettings,
 ): Promise<FetchVoiceResult> {
   if (signal.aborted) throw new DOMException(VOICE_ABORT_REASON, "AbortError");
+
+  if (!supportsSpeechmaticsTts(settings.language)) {
+    return { kind: "browser" };
+  }
 
   try {
     const response = await fetch("/api/voice", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, voiceMode }),
+      body: JSON.stringify({ text, voiceMode: settings.voiceMode, language: settings.language }),
       signal,
     });
 
@@ -38,6 +46,9 @@ async function fetchVoiceChunk(
     if (response.headers.get("content-type")?.includes("audio")) {
       return { kind: "audio", blob: await response.blob() };
     }
+
+    const payload = (await response.json().catch(() => null)) as { browserTts?: boolean } | null;
+    if (payload?.browserTts) return { kind: "browser" };
 
     return { kind: "demo" };
   } catch (error) {
@@ -115,7 +126,7 @@ export async function playPipelinedVoice(
   const prefetch = new Map<number, Promise<FetchVoiceResult>>();
   const queueFetch = (index: number) => {
     if (index >= chunks.length || prefetch.has(index)) return;
-    prefetch.set(index, fetchVoiceChunk(chunks[index]!, signal, settings.voiceMode));
+    prefetch.set(index, fetchVoiceChunk(chunks[index]!, signal, settings));
   };
 
   queueFetch(0);
@@ -143,15 +154,25 @@ export async function playPipelinedVoice(
     }
 
     if (current.kind === "demo") {
-      callbacks?.onStatus?.("idle");
-      return "demo" as const;
+      try {
+        await speakWithBrowser(chunks[index]!, settings, signal);
+        continue;
+      } catch (error) {
+        if (isAbortError(error) || signal.aborted) return "cancelled" as const;
+        callbacks?.onStatus?.("idle");
+        return "demo" as const;
+      }
     }
 
     callbacks?.onStatus?.("playing", `Speaking ${index + 1} of ${chunks.length}`);
     callbacks?.onChunkStart?.(index + 1, chunks.length);
 
     try {
-      await playBlob(current.blob, settings, signal);
+      if (current.kind === "browser") {
+        await speakWithBrowser(chunks[index]!, settings, signal);
+      } else {
+        await playBlob(current.blob, settings, signal);
+      }
     } catch (error) {
       if (isAbortError(error) || signal.aborted) return "cancelled" as const;
       throw error;

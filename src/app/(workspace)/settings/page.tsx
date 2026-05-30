@@ -28,6 +28,8 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { BrightDataControlCenter } from "@/components/settings/bright-data-control-center";
 import { WorkspacePage, WorkspacePageHeader } from "@/components/workspace/workspace-page";
+import { VoiceLanguageSelector } from "@/components/voice/language-selector";
+import { getVoiceLanguageOption, resolveBrowserTtsLanguage } from "@/lib/voice/languages";
 import { type SentraSettings, type VoiceMode, useSettings } from "@/settings/settings-context";
 
 type IntegrationStatus = {
@@ -74,6 +76,7 @@ export default function SettingsPage() {
 
   const brightDataReady = Boolean(status?.brightData.ready);
   const voiceProfile = useMemo(() => voiceModes.find((mode) => mode.id === settings.voice.mode)?.label ?? "Professional", [settings.voice.mode]);
+  const voiceLanguage = useMemo(() => getVoiceLanguageOption(settings.voice.language), [settings.voice.language]);
 
   useEffect(() => {
     void testConnection(false);
@@ -131,7 +134,10 @@ export default function SettingsPage() {
       toast.message("AI voice response is disabled.");
       return;
     }
-    const utterance = new SpeechSynthesisUtterance(`Sentra voice mode is ${voiceProfile}. Settings are active.`);
+    const utterance = new SpeechSynthesisUtterance(
+      `Sentra voice mode is ${voiceProfile}. Language is ${voiceLanguage.label}. Settings are active.`,
+    );
+    utterance.lang = resolveBrowserTtsLanguage(settings.voice.language);
     utterance.rate = settings.voice.speed;
     utterance.volume = settings.voice.volume;
     window.speechSynthesis.cancel();
@@ -181,6 +187,13 @@ export default function SettingsPage() {
           <ToggleRow label="AI voice response" description="When disabled, AI replies stay text-only." checked={settings.voice.enabled} onChange={(value) => patchSection("voice", { enabled: value })} />
           <ToggleRow label="Microphone listening" description="Hides or disables mic input buttons across Sentra." checked={settings.voice.microphone} onChange={(value) => patchSection("voice", { microphone: value })} />
           <ToggleRow label="Auto speech playback" description="Allows automatic spoken briefings when supported by the browser." checked={settings.voice.autoPlayback} onChange={(value) => patchSection("voice", { autoPlayback: value })} />
+          <VoiceLanguageSelector
+            value={settings.voice.language}
+            onChange={(language) => patchSection("voice", { language }, "Speech language saved")}
+          />
+          <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs leading-5 text-white/45">
+            Speech input uses Speechmatics in 12 languages. English audio uses Speechmatics TTS; other languages use your browser voice for playback.
+          </p>
           <Segmented label="Voice mode" value={settings.voice.mode} options={voiceModes} onChange={(value) => patchSection("voice", { mode: value })} />
           <RangeRow label="Voice speed" value={settings.voice.speed} min={0.7} max={1.4} step={0.05} suffix="x" onChange={(value) => patchSection("voice", { speed: value }, "Voice speed saved")} />
           <RangeRow label="Voice volume" value={settings.voice.volume} min={0} max={1} step={0.05} formatter={(value) => `${Math.round(value * 100)}%`} onChange={(value) => patchSection("voice", { volume: value }, "Voice volume saved")} />

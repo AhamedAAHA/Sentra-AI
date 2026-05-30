@@ -35,6 +35,7 @@ import { investigationPrompts, investigationTimeline } from "@/features/image-in
 import { InvestigationResults } from "@/features/image-intelligence/investigation-results";
 import { usePipelineLogs } from "@/hooks/use-pipeline-logs";
 import { visionPipelineScript } from "@/lib/pipeline-log-scripts";
+import { speakWithBrowser } from "@/lib/voice/browser-tts";
 import { cn } from "@/lib/utils";
 import { useSettings } from "@/settings/settings-context";
 import type { ImageInvestigationReport } from "@/types/image-intelligence";
@@ -173,6 +174,7 @@ export function InvestigationStudio() {
     value: prompt,
     onChange: setPrompt,
     getContext: () => prompt,
+    language: settings.voice.language,
   });
 
   useEffect(() => {
@@ -381,7 +383,11 @@ export function InvestigationStudio() {
       const response = await fetch("/api/voice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: reportNarrationText(report), voiceMode: settings.voice.mode }),
+        body: JSON.stringify({
+          text: reportNarrationText(report),
+          voiceMode: settings.voice.mode,
+          language: settings.voice.language,
+        }),
         signal: abortController.signal,
       });
       if (abortController.signal.aborted || voiceRunIdRef.current !== runId) return;
@@ -409,10 +415,17 @@ export function InvestigationStudio() {
         setVoiceStatus("playing");
         await audio.play();
       } else {
-        toast.message("Voice is still in demo mode", {
-          description: "Set AIML_API_KEY in .env.local for spoken analyst output.",
-        });
-        speakingTimeoutRef.current = window.setTimeout(resetVoicePlayback, 1800);
+        setVoiceStatus("playing");
+        await speakWithBrowser(
+          reportNarrationText(report),
+          {
+            language: settings.voice.language,
+            volume: settings.voice.volume,
+            speed: settings.voice.speed,
+          },
+          abortController.signal,
+        );
+        resetVoicePlayback();
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;

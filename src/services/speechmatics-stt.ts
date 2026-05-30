@@ -59,14 +59,14 @@ function extractTranscript(payload: unknown) {
 }
 
 /** Batch speech-to-text via Speechmatics ASR API. */
-export async function transcribeSpeechmaticsAudio(file: File, context?: string) {
+export async function transcribeSpeechmaticsAudio(file: File, context?: string, language = "en") {
   const apiKey = getPlatformEnv("SPEECHMATICS_API_KEY");
   if (!apiKey) return null;
 
   const config = {
     type: "transcription",
     transcription_config: {
-      language: "en",
+      language,
       operating_point: "enhanced",
       additional_vocab: [
         { content: "Sentra" },

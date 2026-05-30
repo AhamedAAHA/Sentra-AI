@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { resolveSpeechRecognitionLanguage, resolveSttLanguage } from "@/lib/voice/languages";
 
 type SpeechRecognitionCtor = new () => SpeechRecognitionInstance;
 
@@ -39,11 +40,12 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
   return win.SpeechRecognition ?? win.webkitSpeechRecognition ?? null;
 }
 
-async function transcribeBlob(blob: Blob, context?: string) {
+async function transcribeBlob(blob: Blob, context?: string, language?: string) {
   const extension = blob.type.includes("mp4") ? "mp4" : "webm";
   const formData = new FormData();
   formData.append("audio", new File([blob], `speech.${extension}`, { type: blob.type }));
   if (context?.trim()) formData.append("context", context.trim());
+  if (language) formData.append("language", resolveSttLanguage(language));
 
   const response = await fetch("/api/transcribe", { method: "POST", body: formData });
   const data = (await response.json()) as { text?: string; error?: string };
@@ -54,9 +56,10 @@ type UseSpeechInputOptions = {
   value: string;
   onChange: (value: string) => void;
   getContext?: () => string;
+  language?: string;
 };
 
-export function useSpeechInput({ value, onChange, getContext }: UseSpeechInputOptions) {
+export function useSpeechInput({ value, onChange, getContext, language = "en" }: UseSpeechInputOptions) {
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState("");
@@ -71,10 +74,15 @@ export function useSpeechInput({ value, onChange, getContext }: UseSpeechInputOp
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const transcriptionQueueRef = useRef(Promise.resolve());
+  const languageRef = useRef(language);
 
   useEffect(() => {
     valueRef.current = value;
   }, [value]);
+
+  useEffect(() => {
+    languageRef.current = language;
+  }, [language]);
 
   const mergeIntoField = useCallback(
     (committed: string, interim: string) => {
@@ -121,7 +129,7 @@ export function useSpeechInput({ value, onChange, getContext }: UseSpeechInputOp
       setTranscribing(true);
       try {
         const context = `${baseValueRef.current} ${committedRef.current}`.trim() || getContext?.() || valueRef.current;
-        const result = await transcribeBlob(blob, context);
+        const result = await transcribeBlob(blob, context, languageRef.current);
         if (!result.ok || !result.text) return;
         committedRef.current = `${committedRef.current} ${result.text}`.trim();
         mergeIntoField(committedRef.current, "");
@@ -144,7 +152,7 @@ export function useSpeechInput({ value, onChange, getContext }: UseSpeechInputOp
     const recognition = new Ctor();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = "en-US";
+    recognition.lang = resolveSpeechRecognitionLanguage(languageRef.current);
     recognitionRef.current = recognition;
 
     recognition.onresult = (event) => {

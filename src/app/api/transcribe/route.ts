@@ -33,11 +33,13 @@ export async function POST(request: Request) {
     }
 
     const contextText = typeof context === "string" ? context.trim() : undefined;
+    const languageRaw = formData.get("language");
+    const language = typeof languageRaw === "string" && languageRaw.trim() ? languageRaw.trim() : "en";
     let provider: "speechmatics" | "aiml" = "aiml";
     let text: string | null = null;
 
     if (isSpeechmaticsSttConfigured()) {
-      text = await transcribeSpeechmaticsAudio(audio, contextText);
+      text = await transcribeSpeechmaticsAudio(audio, contextText, language);
       if (text) provider = "speechmatics";
     }
 

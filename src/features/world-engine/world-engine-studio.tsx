@@ -32,6 +32,7 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useSpeechInput } from "@/hooks/use-speech-input";
 import { cn } from "@/lib/utils";
+import { speakWithBrowser } from "@/lib/voice/browser-tts";
 import { streamWorldActivity } from "@/services/activity-stream-client";
 import { useSettings } from "@/settings/settings-context";
 import type { ActivityCategory, ActivityLevel, ActivityLog, CollectionSource, PipelineHealth } from "@/types/activity-console";
@@ -372,6 +373,7 @@ export function WorldEngineStudio() {
     value: prompt,
     onChange: setPrompt,
     getContext: () => prompt,
+    language: settings.voice.language,
   });
 
   const signals = useMemo(
@@ -532,7 +534,11 @@ export function WorldEngineStudio() {
       const response = await fetch("/api/voice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: report.briefings[mode], voiceMode: settings.voice.mode }),
+        body: JSON.stringify({
+          text: report.briefings[mode],
+          voiceMode: settings.voice.mode,
+          language: settings.voice.language,
+        }),
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
@@ -550,9 +556,18 @@ export function WorldEngineStudio() {
         updateSource({ id: "speechmatics-voice", name: "Speechmatics Voice", channel: "api", status: "success", detail: "Audio stream received" });
         appendClientLog("VOICE", "Spoken intelligence briefing generated and ready for playback.", "Voice synthesis", "success", "Speechmatics TTS");
       } else {
-        updateSource({ id: "speechmatics-voice", name: "Speechmatics Voice", channel: "api", status: "unavailable", detail: "Demo mode: SPEECHMATICS_API_KEY not configured" });
-        appendClientLog("VOICE", "Voice provider unavailable; narration script remains available.", "Voice synthesis", "warning", "Speechmatics TTS");
-        toast.message("Narrator script ready", { description: "Add SPEECHMATICS_API_KEY to the Supabase vault for spoken playback." });
+        setSynthesizing(false);
+        setSpeaking(true);
+        await speakWithBrowser(
+          report.briefings[mode],
+          {
+            language: settings.voice.language,
+            volume: settings.voice.volume,
+            speed: settings.voice.speed,
+          },
+          controller.signal,
+        );
+        stopNarration();
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;

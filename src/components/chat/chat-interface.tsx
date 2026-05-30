@@ -18,6 +18,7 @@ import { useSpeechInput } from "@/hooks/use-speech-input";
 import { useTypewriter } from "@/hooks/use-typewriter";
 import { chatPipelineScript } from "@/lib/pipeline-log-scripts";
 import { getWorkspaceContext } from "@/lib/gtm/workspace-context";
+import { VoiceLanguageSelector } from "@/components/voice/language-selector";
 import { WorkspacePage, WorkspacePageHeader } from "@/components/workspace/workspace-page";
 import { abortVoiceController, isAbortError } from "@/lib/voice/abort";
 import { playPipelinedVoice } from "@/lib/voice/pipelined-playback";
@@ -87,7 +88,7 @@ function AssistantMessage({ content, animated }: { content: string; animated?: b
 }
 
 export function ChatInterface() {
-  const { settings } = useSettings();
+  const { settings, updateSettings } = useSettings();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -126,6 +127,7 @@ export function ChatInterface() {
     value: input,
     onChange: setInput,
     getContext: () => input,
+    language: settings.voice.language,
   });
 
   function finishVoicePlayback() {
@@ -362,7 +364,7 @@ export function ChatInterface() {
     try {
       const result = await playPipelinedVoice(
         content,
-        { volume: settings.voice.volume, speed: settings.voice.speed, voiceMode: settings.voice.mode },
+        { volume: settings.voice.volume, speed: settings.voice.speed, voiceMode: settings.voice.mode, language: settings.voice.language },
         abortController.signal,
         {
           onStatus: (status) => {
@@ -376,8 +378,8 @@ export function ChatInterface() {
       if (result === "cancelled") return;
 
       if (result === "demo") {
-        toast.message("Voice is still in demo mode", {
-          description: "Add SPEECHMATICS_API_KEY to the Supabase vault (npm run secrets:rotate).",
+        toast.message("Using browser voice", {
+          description: "Add SPEECHMATICS_API_KEY for premium English TTS, or keep using browser speech.",
         });
         speakingTimeoutRef.current = window.setTimeout(finishVoicePlayback, 1800);
         return;
@@ -663,6 +665,17 @@ export function ChatInterface() {
                     ? "Transcript updates live in the prompt while you speak."
                     : "Use the microphone beside the prompt box to speak your request, or click a response voice button."}
             </p>
+            <VoiceLanguageSelector
+              className="mt-5 w-full"
+              compact
+              value={settings.voice.language}
+              onChange={(language) =>
+                updateSettings((current) => ({
+                  ...current,
+                  voice: { ...current.voice, language },
+                }))
+              }
+            />
             <Button
               variant="ghost"
               className="mt-5"

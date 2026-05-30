@@ -4,12 +4,27 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 export type VoiceMode = "professional" | "analyst" | "calm" | "fast";
 
+export type VoiceLanguage =
+  | "en"
+  | "es"
+  | "fr"
+  | "de"
+  | "pt"
+  | "hi"
+  | "ja"
+  | "zh"
+  | "ar"
+  | "ko"
+  | "it"
+  | "nl";
+
 export type SentraSettings = {
   voice: {
     enabled: boolean;
     microphone: boolean;
     autoPlayback: boolean;
     mode: VoiceMode;
+    language: VoiceLanguage;
     speed: number;
     volume: number;
   };
@@ -70,6 +85,7 @@ export const defaultSettings: SentraSettings = {
     microphone: true,
     autoPlayback: false,
     mode: "professional",
+    language: "en",
     speed: 1,
     volume: 0.9,
   },

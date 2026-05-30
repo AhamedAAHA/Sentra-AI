@@ -3,6 +3,7 @@ import { requireApiUser } from "@/lib/auth/session";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { ensurePlatformSecrets } from "@/lib/secrets/platform-secrets";
 import { SpeechmaticsTtsError, synthesizeSpeech } from "@/services/voice-synthesis";
+import { supportsSpeechmaticsTts } from "@/lib/voice/languages";
 import type { VoiceMode } from "@/settings/settings-context";
 
 export const runtime = "nodejs";
@@ -20,8 +21,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: limited.message }, { status: 429 });
     }
 
-    const body = (await request.json()) as { text?: string; voiceMode?: string };
+    const body = (await request.json()) as { text?: string; voiceMode?: string; language?: string };
     const text = body.text?.trim();
+    const language = body.language?.trim() || "en";
     const voiceMode =
       body.voiceMode && VOICE_MODES.has(body.voiceMode as VoiceMode)
         ? (body.voiceMode as VoiceMode)
@@ -31,12 +33,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Text is required" }, { status: 400 });
     }
 
+    if (!supportsSpeechmaticsTts(language)) {
+      return NextResponse.json({ browserTts: true, language });
+    }
+
     const audio = await synthesizeSpeech(text, voiceMode);
 
     if (!audio) {
       return NextResponse.json({
-        demo: true,
-        message: "Add SPEECHMATICS_API_KEY to the Supabase vault (npm run secrets:rotate) for live voice.",
+        browserTts: true,
+        language,
+        message: "Add SPEECHMATICS_API_KEY for premium English TTS, or use browser speech.",
       });
     }
 
