@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, BellRing, Bot, CheckCircle2, Pause, Play, Radar, ShieldCheck, Sparkles, TimerReset, Trash2, X, Zap } from "lucide-react";
+import { AlertTriangle, BellRing, Bot, CheckCircle2, Pause, Play, Radar, Sparkles, TimerReset, Trash2, TrendingUp, X, Zap } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,7 @@ import { getAlertWebhookUrl, getAutomationWebhookUrl, saveAlertWebhookUrl, saveA
 import { WorkspaceSection } from "@/components/workspace/workspace-page";
 import { isBrowserSupabaseConfigured } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { looksLikeTechnicalPayload } from "@/lib/evidence/format-evidence";
 import { ChangeDetectionPanel } from "@/components/dashboard/change-detection-panel";
 import { MonitorTimeline } from "@/components/dashboard/monitor-timeline";
 import { initializePresetDemoStorage, PRESET_DEMO_MONITOR_REQUIREMENT } from "@/lib/demo/preset-scenario";
@@ -1256,7 +1257,7 @@ export function MonitorCenter() {
           onClick={closeReport}
         >
           <div
-            className="w-full max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-sentra-panel shadow-2xl shadow-black/40"
+            className="w-full max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-sentra-panel shadow-2xl shadow-black/40"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5 md:p-6">
@@ -1289,55 +1290,194 @@ export function MonitorCenter() {
               </Button>
             </div>
 
-            <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
-              <div className="border-b border-white/10 p-5 md:p-6 lg:border-b-0 lg:border-r">
-                <p className="text-sm uppercase tracking-[0.24em] text-white/35">
-                  {selectedReport.report ? "Evidence-backed sources" : "Signal details"}
-                </p>
-                {selectedReport.report ? (
-                  <div className="mt-5 grid gap-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
-                        <p className="text-xs uppercase tracking-[0.18em] text-white/35">Risk score</p>
-                        <p className="mt-2 text-3xl font-semibold text-rose-100">{selectedReport.report.riskScore}%</p>
-                      </div>
-                      <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
-                        <p className="text-xs uppercase tracking-[0.18em] text-white/35">Confidence</p>
-                        <p className="mt-2 text-3xl font-semibold text-cyan-100">{selectedReport.report.confidence}%</p>
+            <div className="max-h-[min(78vh,900px)] overflow-y-auto">
+              {selectedReport.report ? (
+                <div className="grid gap-0">
+                  <div className="grid grid-cols-2 gap-3 border-b border-white/10 p-5 md:grid-cols-4 md:p-6">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-white/35">Risk score</p>
+                      <p className="mt-2 text-2xl font-semibold text-rose-100">{selectedReport.report.riskScore}%</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-white/35">Confidence</p>
+                      <p className="mt-2 text-2xl font-semibold text-cyan-100">{selectedReport.report.confidence}%</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-white/35">Sources</p>
+                      <p className="mt-2 text-2xl font-semibold text-white">{selectedReport.report.evidenceSources.length}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-white/35">Claims</p>
+                      <p className="mt-2 text-2xl font-semibold text-white">{selectedReport.report.verifiedClaims.length}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 border-b border-white/10 p-5 md:grid-cols-2 md:p-6">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-white/35">Situation</p>
+                      <p className="mt-2 text-sm leading-7 text-white/68">{selectedReport.report.situation}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-white/35">Business impact</p>
+                      <p className="mt-2 text-sm leading-7 text-white/68">{selectedReport.report.impact}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 border-b border-white/10 p-5 md:grid-cols-2 md:p-6">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-white/35">Action plan</p>
+                      <ul className="mt-3 grid gap-2">
+                        {selectedReport.report.actionPlan.map((item) => (
+                          <li key={item} className="flex gap-2 text-sm leading-6 text-white/68">
+                            <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-200" />
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-white/35">Watch items</p>
+                      <ul className="mt-3 grid gap-2">
+                        {selectedReport.report.watchItems.map((item) => {
+                          const isOpportunity = item.toLowerCase().startsWith("opportunity:");
+                          return (
+                            <li key={item} className="flex gap-2 text-sm leading-6 text-white/68">
+                              {isOpportunity ? (
+                                <TrendingUp className="mt-1 h-4 w-4 shrink-0 text-cyan-200" />
+                              ) : (
+                                <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-amber-200" />
+                              )}
+                              {item}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {selectedReport.report.detectedChanges && selectedReport.report.detectedChanges.length > 0 && (
+                    <div className="border-b border-white/10 p-5 md:p-6">
+                      <p className="text-xs uppercase tracking-[0.2em] text-white/35">Snapshot changes</p>
+                      <div className="mt-3 grid gap-2 md:grid-cols-2">
+                        {selectedReport.report.detectedChanges.map((change) => (
+                          <div key={change.id} className="rounded-2xl border border-white/10 bg-black/10 p-3">
+                            <p className="text-sm font-medium text-white">
+                              {change.field}: {change.oldValue} → {change.newValue}
+                            </p>
+                            <p className="mt-1 text-xs text-white/45">{new Date(change.detectedAt).toLocaleString()}</p>
+                            <a href={change.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 block truncate text-xs text-cyan-100/70">
+                              {change.sourceUrl}
+                            </a>
+                            <p className="mt-2 text-xs leading-5 text-white/50">{change.impact}</p>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                    {selectedReport.report.evidenceSources.map((source) => (
-                      <div key={source.id} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-xs uppercase tracking-[0.18em] text-white/35">{source.publisher}</p>
-                            {source.url ? (
-                              <a href={source.url} target="_blank" rel="noreferrer" className="mt-2 block break-words text-sm font-medium text-cyan-100">
-                                {source.title}
-                              </a>
-                            ) : (
-                              <p className="mt-2 break-words text-sm font-medium text-white/72">{source.title}</p>
-                            )}
-                            <p className="mt-2 text-xs leading-5 text-white/45">{source.claimSupported}</p>
-                            {source.excerpt && (
-                              <p className="mt-2 rounded-xl border border-white/10 bg-black/15 p-2 text-xs leading-5 text-white/50">
-                                &ldquo;{source.excerpt.slice(0, 180)}{source.excerpt.length > 180 ? "…" : ""}&rdquo;
-                              </p>
-                            )}
-                            {source.collectedAt && (
-                              <p className="mt-2 text-xs text-white/35">
-                                Collected {new Date(source.collectedAt).toLocaleString()}
-                                {source.brightDataMode ? ` · ${source.brightDataMode}` : ""}
-                              </p>
-                            )}
+                  )}
+
+                  <div className="border-b border-white/10 p-5 md:p-6">
+                    <p className="text-xs uppercase tracking-[0.24em] text-white/35">Evidence-backed sources</p>
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      {selectedReport.report.evidenceSources.map((source) => {
+                        const excerpt =
+                          source.excerpt && !looksLikeTechnicalPayload(source.excerpt)
+                            ? source.excerpt
+                            : source.claimSupported;
+                        return (
+                          <div key={source.id} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs uppercase tracking-[0.18em] text-white/35">{source.publisher}</p>
+                                {source.url ? (
+                                  <a
+                                    href={source.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-2 block break-words text-sm font-medium text-cyan-100 hover:underline"
+                                  >
+                                    {source.title}
+                                  </a>
+                                ) : (
+                                  <p className="mt-2 break-words text-sm font-medium text-white/72">{source.title}</p>
+                                )}
+                                <p className="mt-2 text-sm leading-6 text-white/62">{source.claimSupported}</p>
+                                {excerpt && (
+                                  <p className="mt-2 rounded-xl border border-white/10 bg-black/15 p-3 text-xs leading-5 text-white/55">
+                                    {excerpt.slice(0, 220)}
+                                    {excerpt.length > 220 ? "…" : ""}
+                                  </p>
+                                )}
+                                {source.collectedAt && (
+                                  <p className="mt-2 text-xs text-white/35">
+                                    Collected {new Date(source.collectedAt).toLocaleString()}
+                                    {source.brightDataMode ? ` · ${source.brightDataMode}` : ""}
+                                  </p>
+                                )}
+                              </div>
+                              <Badge variant={source.reliability >= 80 ? "success" : "default"}>{source.reliability}%</Badge>
+                            </div>
                           </div>
-                          <Badge variant={source.reliability >= 80 ? "success" : "default"}>{source.reliability}%</Badge>
-                        </div>
-                      </div>
-                    ))}
+                        );
+                      })}
+                    </div>
                   </div>
-                ) : (
-                  <div className="mt-5 grid gap-4">
+
+                  <div className="p-5 md:p-6">
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/35">Claim verification</p>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      {selectedReport.report.verifiedClaims.map((claim) => {
+                        const status = normalizeClaimStatus(claim.status);
+                        return (
+                          <div key={claim.id} className="rounded-2xl border border-white/10 bg-black/10 p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <Badge variant={status === "evidence-backed" ? "success" : status === "partial" ? "default" : "risk"}>
+                                {claimStatusLabel(status)}
+                              </Badge>
+                              <span className="text-xs text-cyan-100/58">{claim.confidence}%</span>
+                            </div>
+                            <p className="mt-2 text-sm leading-6 text-white/64">{claim.claim}</p>
+                            {claim.sourceRecords?.map((record) => {
+                              const recordExcerpt =
+                                record.excerpt && !looksLikeTechnicalPayload(record.excerpt)
+                                  ? record.excerpt
+                                  : claim.claim;
+                              return (
+                                <div key={`${claim.id}-${record.sourceId}`} className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                                  {record.url && (
+                                    <a href={record.url} target="_blank" rel="noreferrer" className="block truncate text-xs text-cyan-100/75 hover:underline">
+                                      {record.url}
+                                    </a>
+                                  )}
+                                  <p className="mt-2 text-xs leading-5 text-white/48">
+                                    {recordExcerpt.slice(0, 200)}
+                                    {recordExcerpt.length > 200 ? "…" : ""}
+                                  </p>
+                                  <p className="mt-2 text-xs text-white/35">
+                                    Collected {new Date(record.collectedAt).toLocaleString()}
+                                    {record.brightDataMode ? ` · ${record.brightDataMode}` : ""}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-white/10 p-5 md:p-6">
+                    <p className="mb-3 text-xs uppercase tracking-[0.2em] text-white/35">CRM & automation</p>
+                    <AutomationWebhookPanel
+                      report={selectedReport.report}
+                      requirement={selectedReport.monitor.requirement}
+                      monitorId={selectedReport.monitor.id}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="p-5 md:p-6">
+                  <p className="text-sm uppercase tracking-[0.24em] text-white/35">Signal details</p>
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
                     <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
                       <p className="text-xs uppercase tracking-[0.18em] text-white/35">Situation</p>
                       <p className="mt-2 text-sm leading-6 text-white/68">{selectedReport.signal?.summary}</p>
@@ -1346,147 +1486,40 @@ export function MonitorCenter() {
                       <p className="text-xs uppercase tracking-[0.18em] text-white/35">Source</p>
                       <p className="mt-2 text-sm leading-6 text-white/68">{selectedReport.signal?.source}</p>
                     </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-4">
-                      <p className="text-xs uppercase tracking-[0.18em] text-white/35">Response posture</p>
-                      <div className="mt-3 flex items-start gap-3 text-sm leading-6 text-white/65">
-                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-200" />
-                        Review the evidence, assign an owner, and keep the monitor active until the signal is resolved.
+                  </div>
+
+                  <div className="mt-6">
+                    <div className="flex items-center gap-3">
+                      <span className="grid h-10 w-10 place-items-center rounded-2xl bg-cyan-300/10 text-sentra-cyan">
+                        <Bot className="h-5 w-5" />
+                      </span>
+                      <div>
+                        <p className="font-semibold text-white">AI assistant analysis</p>
+                        <p className="text-xs text-white/42">Situation summary and recommended next moves</p>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="p-5 md:p-6">
-                <div className="flex items-center gap-3">
-                  <span className="grid h-10 w-10 place-items-center rounded-2xl bg-cyan-300/10 text-sentra-cyan">
-                    {selectedReport.report ? <ShieldCheck className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
-                  </span>
-                  <div>
-                    <p className="font-semibold text-white">
-                      {selectedReport.report ? "Executive intelligence report" : "AI assistant analysis"}
-                    </p>
-                    <p className="text-xs text-white/42">
-                      {selectedReport.report ? "Facts, forecasts, actions, and verification status" : "Situation summary and recommended next moves"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 min-h-80 rounded-3xl border border-white/10 bg-white/[0.045] p-5">
-                  {selectedReport.report ? (
-                    <div className="grid gap-5">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-white/35">Situation</p>
-                        <p className="mt-2 text-sm leading-7 text-white/68">{selectedReport.report.situation}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-white/35">Business impact</p>
-                        <p className="mt-2 text-sm leading-7 text-white/68">{selectedReport.report.impact}</p>
-                      </div>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.2em] text-white/35">Action plan</p>
-                          <ul className="mt-3 grid gap-2">
-                            {selectedReport.report.actionPlan.map((item) => (
-                              <li key={item} className="flex gap-2 text-sm leading-6 text-white/68">
-                                <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-200" />
-                                {item}
-                              </li>
-                            ))}
-                          </ul>
+                    <div className="mt-5 min-h-48 rounded-3xl border border-white/10 bg-white/[0.045] p-5">
+                      {aiLoading ? (
+                        <div className="flex h-40 items-center justify-center gap-3 text-sm text-white/60">
+                          <Sparkles className="h-4 w-4 animate-pulse text-sentra-cyan" />
+                          Sentra is analysing the alert...
                         </div>
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.2em] text-white/35">Watch items</p>
-                          <ul className="mt-3 grid gap-2">
-                            {selectedReport.report.watchItems.map((item) => (
-                              <li key={item} className="flex gap-2 text-sm leading-6 text-white/68">
-                                <AlertTriangle className="mt-1 h-4 w-4 shrink-0 text-amber-200" />
-                                {item}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                      {selectedReport.report.detectedChanges && selectedReport.report.detectedChanges.length > 0 && (
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.2em] text-white/35">Snapshot changes</p>
-                          <div className="mt-3 grid gap-2">
-                            {selectedReport.report.detectedChanges.map((change) => (
-                              <div key={change.id} className="rounded-2xl border border-white/10 bg-black/10 p-3">
-                                <p className="text-sm font-medium text-white">
-                                  {change.field}: {change.oldValue} → {change.newValue}
-                                </p>
-                                <p className="mt-1 text-xs text-white/45">{new Date(change.detectedAt).toLocaleString()}</p>
-                                <a href={change.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 block truncate text-xs text-cyan-100/70">
-                                  {change.sourceUrl}
-                                </a>
-                                <p className="mt-2 text-xs leading-5 text-white/50">{change.impact}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-white/35">Claim verification</p>
-                        <div className="mt-3 grid gap-2">
-                          {selectedReport.report.verifiedClaims.map((claim) => {
-                            const status = normalizeClaimStatus(claim.status);
-                            return (
-                            <div key={claim.id} className="rounded-2xl border border-white/10 bg-black/10 p-3">
-                              <div className="flex items-center justify-between gap-3">
-                                <Badge variant={status === "evidence-backed" ? "success" : status === "partial" ? "default" : "risk"}>
-                                  {claimStatusLabel(status)}
-                                </Badge>
-                                <span className="text-xs text-cyan-100/58">{claim.confidence}%</span>
-                              </div>
-                              <p className="mt-2 text-sm leading-6 text-white/64">{claim.claim}</p>
-                              {claim.sourceRecords?.map((record) => (
-                                <div key={`${claim.id}-${record.sourceId}`} className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                                  {record.url && (
-                                    <a href={record.url} target="_blank" rel="noreferrer" className="block truncate text-xs text-cyan-100/75">
-                                      {record.url}
-                                    </a>
-                                  )}
-                                  <p className="mt-2 text-xs leading-5 text-white/48">&ldquo;{record.excerpt.slice(0, 200)}{record.excerpt.length > 200 ? "…" : ""}&rdquo;</p>
-                                  <p className="mt-2 text-xs text-white/35">
-                                    Collected {new Date(record.collectedAt).toLocaleString()}
-                                    {record.brightDataMode ? ` · Bright Data ${record.brightDataMode}` : ""}
-                                  </p>
-                                </div>
-                              ))}
+                      ) : (
+                        <>
+                          {aiError && (
+                            <div className="mb-4 rounded-2xl border border-amber-300/20 bg-amber-400/10 p-3 text-sm text-amber-100">
+                              {aiError}
                             </div>
-                          );
-                          })}
-                        </div>
-                      </div>
-                      <div className="border-t border-white/10 pt-5">
-                        <p className="mb-3 text-xs uppercase tracking-[0.2em] text-white/35">CRM & automation</p>
-                        <AutomationWebhookPanel
-                          report={selectedReport.report}
-                          requirement={selectedReport.monitor.requirement}
-                          monitorId={selectedReport.monitor.id}
-                        />
-                      </div>
-                    </div>
-                  ) : aiLoading ? (
-                    <div className="flex h-64 items-center justify-center gap-3 text-sm text-white/60">
-                      <Sparkles className="h-4 w-4 animate-pulse text-sentra-cyan" />
-                      Sentra is analysing the alert...
-                    </div>
-                  ) : (
-                    <>
-                      {aiError && (
-                        <div className="mb-4 rounded-2xl border border-amber-300/20 bg-amber-400/10 p-3 text-sm text-amber-100">
-                          {aiError}
-                        </div>
+                          )}
+                          <div className="prose prose-invert max-w-none prose-headings:text-white prose-p:text-sm prose-p:leading-7 prose-p:text-white/68 prose-li:text-sm prose-li:text-white/68 prose-strong:text-white">
+                            <ReactMarkdown>{aiSummary}</ReactMarkdown>
+                          </div>
+                        </>
                       )}
-                      <div className="prose prose-invert max-w-none prose-headings:text-white prose-p:text-sm prose-p:leading-7 prose-p:text-white/68 prose-li:text-sm prose-li:text-white/68 prose-strong:text-white">
-                        <ReactMarkdown>{aiSummary}</ReactMarkdown>
-                      </div>
-                    </>
-                  )}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

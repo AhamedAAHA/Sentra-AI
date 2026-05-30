@@ -9,6 +9,7 @@ import type {
   IntelligenceSignal,
   VerifiedClaim,
 } from "@/types/intelligence";
+import { formatEvidenceExcerpt, formatEvidenceTitle } from "@/lib/evidence/format-evidence";
 
 const severityScore: Record<IntelligenceSignal["severity"], number> = {
   low: 30,
@@ -41,18 +42,10 @@ function inferBrightDataMode(evidence: string, index: number): BrightDataCollect
 }
 
 function excerptForSignal(signal: IntelligenceSignal, evidence: string): string {
-  const url = signal.sourceUrl ?? evidenceUrlFromRaw(evidence, 0);
-  if (url) {
-    const afterUrl = evidence.split(url)[1]?.slice(0, 400);
-    if (afterUrl?.trim()) return afterUrl.trim().slice(0, 280);
-  }
-
-  const titleIndex = evidence.toLowerCase().indexOf(signal.title.toLowerCase().slice(0, 24));
-  if (titleIndex >= 0) {
-    return evidence.slice(titleIndex, titleIndex + 280).trim();
-  }
-
-  return evidence.slice(0, 280).trim();
+  return formatEvidenceExcerpt(evidence, {
+    hint: signal.title,
+    fallback: signal.summary,
+  });
 }
 
 function claimStatusFromEvidence(
@@ -95,12 +88,12 @@ function buildEvidenceSources(
 
     sourceMap.set(key, {
       id,
-      title: signal.source,
+      title: formatEvidenceTitle(signal.title, signal.source),
       url,
       publisher,
       freshness: signal.timestamp || "latest collected run",
       reliability: provider === "bright-data" ? Math.min(96, Math.round(signal.confidence * 100 + 5)) : 72,
-      claimSupported: signal.title,
+      claimSupported: signal.summary || signal.title,
       collectedAt,
       brightDataMode,
       excerpt: excerptForSignal(signal, evidence),
@@ -117,7 +110,7 @@ function buildEvidenceSources(
       claimSupported: "Monitor requirement requires further corroboration.",
       collectedAt,
       brightDataMode: collectionMeta?.brightDataMode,
-      excerpt: evidence.slice(0, 280),
+      excerpt: formatEvidenceExcerpt(evidence, { fallback: "Evidence collected for this monitor run." }),
     });
   }
 
