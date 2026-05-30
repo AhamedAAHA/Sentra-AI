@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { ArrowRight, FileCheck2, Radar, ShieldAlert } from "lucide-react";
@@ -8,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SENTRA_HOME } from "@/lib/landing/auth-links";
+import { cn } from "@/lib/utils";
 
 const HeroVisual = dynamic(
   () => import("@/components/landing/hero-visual").then((module) => module.HeroVisual),
@@ -20,19 +22,71 @@ const cards = [
   { icon: FileCheck2, label: "Report", value: "Board", detail: "executive action briefings" },
 ];
 
-const overlayText =
-  "pointer-events-none select-none [text-shadow:0_1px_14px_rgba(0,0,0,0.9),0_0_32px_rgba(0,0,0,0.55)]";
+function HeroCallout({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 backdrop-blur-[6px] sm:px-4 sm:py-3.5",
+        className,
+      )}
+      data-float
+    >
+      {children}
+    </div>
+  );
+}
+
+function HeroVisualLayer({ className }: { className?: string }) {
+  return (
+    <div className={cn("pointer-events-none absolute inset-0", className)}>
+      <HeroVisual />
+      <div className="absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-sentra-ink to-transparent sm:w-1/3 lg:w-2/5" />
+      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-sentra-ink to-transparent sm:h-20" />
+      <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-sentra-ink/80 to-transparent" />
+
+      <HeroCallout className="absolute left-[4%] top-[10%] w-[min(13.5rem,74%)] sm:left-[6%] sm:top-[12%] sm:w-52">
+        <p className="text-[0.6rem] uppercase tracking-[0.26em] text-cyan-100/60 sm:text-[0.65rem]">
+          Monitor workflow
+        </p>
+        <p className="mt-1.5 text-lg font-semibold text-white sm:mt-2 sm:text-xl">Live watch</p>
+        <p className="mt-0.5 text-[0.65rem] leading-4 text-white/50 sm:text-xs">
+          competitors, pricing, hiring, sentiment
+        </p>
+      </HeroCallout>
+
+      <HeroCallout className="absolute right-[4%] top-[18%] w-[min(10rem,58%)] sm:right-[6%] sm:top-[20%] sm:w-44">
+        <p className="text-[0.65rem] text-white/60 sm:text-xs">Evidence</p>
+        <p className="mt-1 text-base font-semibold leading-snug text-white sm:text-lg">SERP + Unlocker</p>
+        <p className="mt-0.5 text-[0.6rem] leading-4 text-white/45 sm:text-[0.65rem]">
+          Live vs Sample labeled in the product
+        </p>
+      </HeroCallout>
+
+      <HeroCallout className="absolute bottom-[8%] left-[4%] right-[4%] sm:bottom-[10%] sm:left-auto sm:right-[6%] sm:w-[min(18rem,84%)]">
+        <p className="text-[0.6rem] uppercase tracking-[0.26em] text-violet-100/60 sm:text-[0.65rem]">
+          Executive report
+        </p>
+        <p className="mt-1.5 text-[0.65rem] leading-5 text-white/70 sm:mt-2 sm:text-xs">
+          Pricing pressure verified. Recommended action: brief strategic accounts and prepare retention
+          offers.
+        </p>
+      </HeroCallout>
+    </div>
+  );
+}
 
 export function Hero() {
   return (
     <section className="relative overflow-hidden pb-16 pt-28 md:pb-24 md:pt-36 lg:pb-20 lg:pt-40">
-      <div className="container flex flex-col gap-12 lg:gap-14 xl:gap-16">
+      <HeroVisualLayer className="hidden lg:block lg:inset-y-6 lg:left-[38%] lg:right-[-6%] xl:inset-y-10 xl:left-[40%] xl:right-[-4%]" />
+
+      <div className="container relative z-10 flex flex-col gap-12 lg:gap-14 xl:gap-16">
         <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-10 xl:grid-cols-[0.92fr_1.08fr] xl:gap-14">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-            className="flex flex-col items-start text-left lg:max-w-[34rem] xl:max-w-[36rem]"
+            className="relative z-10 flex flex-col items-start text-left lg:max-w-[34rem] xl:max-w-[36rem]"
           >
             <Badge variant="cyan" className="mb-6">
               Autonomous intelligence command center
@@ -62,48 +116,12 @@ export function Hero() {
           </motion.div>
 
           <motion.div
-            className="relative mx-auto aspect-[5/6] w-full max-w-[400px] sm:aspect-[4/5] sm:max-w-[440px] lg:mx-0 lg:max-w-[420px] lg:justify-self-start lg:pl-2 xl:aspect-square xl:max-h-[440px] xl:max-w-[460px] xl:pl-6 xl:-translate-x-2"
-            initial={{ opacity: 0, scale: 0.94 }}
+            className="relative mx-auto aspect-[5/6] w-full max-w-[400px] sm:aspect-[4/5] sm:max-w-[440px] lg:min-h-[480px] lg:max-w-none xl:min-h-[520px]"
+            initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1, delay: 0.1 }}
           >
-            <HeroVisual />
-            <div
-              className={`absolute left-3 top-7 max-w-[13rem] sm:left-5 sm:top-9 sm:max-w-[14rem] ${overlayText}`}
-              data-float
-            >
-              <p className="text-[0.6rem] uppercase tracking-[0.26em] text-cyan-100/75 sm:text-[0.65rem]">
-                Monitor workflow
-              </p>
-              <p className="mt-1.5 text-lg font-semibold text-white sm:mt-2 sm:text-xl">Live watch</p>
-              <p className="mt-0.5 text-[0.65rem] leading-4 text-white/65 sm:text-xs">
-                competitors, pricing, hiring, sentiment
-              </p>
-            </div>
-            <div
-              className={`absolute right-3 top-12 max-w-[10.5rem] text-right sm:right-5 sm:top-14 sm:max-w-[11rem] ${overlayText}`}
-              data-float
-            >
-              <p className="text-[0.65rem] text-white/70 sm:text-xs">Evidence</p>
-              <p className="mt-1 text-base font-semibold leading-snug text-white sm:text-lg">
-                SERP + Unlocker
-              </p>
-              <p className="mt-0.5 text-[0.6rem] leading-4 text-white/55 sm:text-[0.65rem]">
-                Live vs Sample labeled in the product
-              </p>
-            </div>
-            <div
-              className={`absolute bottom-6 left-3 right-3 sm:bottom-8 sm:left-auto sm:right-5 sm:max-w-[18rem] ${overlayText}`}
-              data-float
-            >
-              <p className="text-[0.6rem] uppercase tracking-[0.26em] text-violet-100/75 sm:text-[0.65rem]">
-                Executive report
-              </p>
-              <p className="mt-1.5 text-[0.65rem] leading-5 text-white/75 sm:mt-2 sm:text-xs">
-                Pricing pressure verified. Recommended action: brief strategic accounts and prepare
-                retention offers.
-              </p>
-            </div>
+            <HeroVisualLayer className="lg:hidden" />
           </motion.div>
         </div>
 
@@ -111,7 +129,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-          className="grid gap-3 sm:grid-cols-3 sm:gap-4"
+          className="relative z-10 grid gap-3 sm:grid-cols-3 sm:gap-4"
         >
           {cards.map((card) => (
             <Card key={card.label} className="flex h-full flex-col p-4 sm:p-5" data-float>
