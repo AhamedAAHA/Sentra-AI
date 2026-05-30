@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/session";
 import { validatePublicHttpsUrl } from "@/lib/security/url";
+import { recordProviderUsage } from "@/lib/provider-usage";
 import { ensurePlatformSecrets } from "@/lib/secrets/platform-secrets";
 import {
   BrightDataCollectionError,
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
       body.targetUrl = validated.url;
     }
 
+    void recordProviderUsage("bright_data");
     const result = await collectWebIntelligence(body);
     return NextResponse.json(result);
   } catch (error) {

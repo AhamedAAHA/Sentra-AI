@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { recordProviderUsage, type ProviderId } from "@/lib/provider-usage";
 import { getSupabaseServiceRoleKey } from "@/lib/supabase/env";
 
 type RateLimitConfig = {
@@ -15,6 +16,13 @@ const LIMITS: Record<string, RateLimitConfig> = {
   voice: { action: "voice", limit: 40, windowMs: 60 * 60 * 1000 },
 };
 
+const PROVIDER_BY_ACTION: Partial<Record<keyof typeof LIMITS, ProviderId>> = {
+  intelligence: "aiml",
+  monitor_check: "bright_data",
+  transcribe: "speechmatics",
+  voice: "speechmatics",
+};
+
 function getWindowStart(windowMs: number) {
   const now = Date.now();
   const start = new Date(Math.floor(now / windowMs) * windowMs);
@@ -26,6 +34,8 @@ export async function checkRateLimit(userId: string, key: keyof typeof LIMITS) {
   if (!config) return { allowed: true as const };
 
   if (!getSupabaseServiceRoleKey()) {
+    const provider = PROVIDER_BY_ACTION[key];
+    if (provider) void recordProviderUsage(provider);
     return { allowed: true as const };
   }
 
@@ -59,6 +69,11 @@ export async function checkRateLimit(userId: string, key: keyof typeof LIMITS) {
       window_start: windowStart,
       count: 1,
     });
+  }
+
+  const provider = PROVIDER_BY_ACTION[key];
+  if (provider) {
+    void recordProviderUsage(provider);
   }
 
   return { allowed: true as const };
