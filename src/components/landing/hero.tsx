@@ -20,6 +20,9 @@ const cards = [
   { icon: FileCheck2, label: "Report", value: "Board", detail: "executive action briefings" },
 ];
 
+const overlayText =
+  "pointer-events-none select-none [text-shadow:0_1px_14px_rgba(0,0,0,0.9),0_0_32px_rgba(0,0,0,0.55)]";
+
 export function Hero() {
   return (
     <section className="relative overflow-hidden pb-16 pt-28 md:pb-24 md:pt-36 lg:pb-20 lg:pt-40">
@@ -59,50 +62,48 @@ export function Hero() {
           </motion.div>
 
           <motion.div
-            className="relative mx-auto aspect-[5/6] w-full max-w-[400px] overflow-hidden rounded-[1.5rem] sm:aspect-[4/5] sm:max-w-[440px] lg:mx-0 lg:max-w-[420px] lg:justify-self-start lg:pl-2 xl:aspect-square xl:max-h-[440px] xl:max-w-[460px] xl:pl-6 xl:-translate-x-2"
+            className="relative mx-auto aspect-[5/6] w-full max-w-[400px] sm:aspect-[4/5] sm:max-w-[440px] lg:mx-0 lg:max-w-[420px] lg:justify-self-start lg:pl-2 xl:aspect-square xl:max-h-[440px] xl:max-w-[460px] xl:pl-6 xl:-translate-x-2"
             initial={{ opacity: 0, scale: 0.94 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1, delay: 0.1 }}
           >
             <HeroVisual />
-            <Card
-              className="absolute left-2 top-6 w-[min(13.5rem,74%)] p-3 sm:left-4 sm:top-8 sm:w-52 sm:p-4"
+            <div
+              className={`absolute left-3 top-7 max-w-[13rem] sm:left-5 sm:top-9 sm:max-w-[14rem] ${overlayText}`}
               data-float
-              glow
             >
-              <p className="text-[0.6rem] uppercase tracking-[0.26em] text-cyan-100/60 sm:text-[0.65rem]">
+              <p className="text-[0.6rem] uppercase tracking-[0.26em] text-cyan-100/75 sm:text-[0.65rem]">
                 Monitor workflow
               </p>
               <p className="mt-1.5 text-lg font-semibold text-white sm:mt-2 sm:text-xl">Live watch</p>
-              <p className="mt-0.5 text-[0.65rem] leading-4 text-white/50 sm:text-xs">
+              <p className="mt-0.5 text-[0.65rem] leading-4 text-white/65 sm:text-xs">
                 competitors, pricing, hiring, sentiment
               </p>
-            </Card>
-            <Card
-              className="absolute right-2 top-11 w-[min(10rem,58%)] p-3 sm:right-4 sm:top-12 sm:w-44 sm:p-4"
+            </div>
+            <div
+              className={`absolute right-3 top-12 max-w-[10.5rem] text-right sm:right-5 sm:top-14 sm:max-w-[11rem] ${overlayText}`}
               data-float
             >
-              <p className="text-[0.65rem] text-white/60 sm:text-xs">Evidence</p>
+              <p className="text-[0.65rem] text-white/70 sm:text-xs">Evidence</p>
               <p className="mt-1 text-base font-semibold leading-snug text-white sm:text-lg">
                 SERP + Unlocker
               </p>
-              <p className="mt-0.5 text-[0.6rem] leading-4 text-white/45 sm:text-[0.65rem]">
+              <p className="mt-0.5 text-[0.6rem] leading-4 text-white/55 sm:text-[0.65rem]">
                 Live vs Sample labeled in the product
               </p>
-            </Card>
-            <Card
-              className="absolute bottom-4 left-2 right-2 p-3 sm:bottom-6 sm:left-auto sm:right-4 sm:w-[min(18rem,84%)] sm:p-4"
+            </div>
+            <div
+              className={`absolute bottom-6 left-3 right-3 sm:bottom-8 sm:left-auto sm:right-5 sm:max-w-[18rem] ${overlayText}`}
               data-float
-              glow
             >
-              <p className="text-[0.6rem] uppercase tracking-[0.26em] text-violet-100/60 sm:text-[0.65rem]">
+              <p className="text-[0.6rem] uppercase tracking-[0.26em] text-violet-100/75 sm:text-[0.65rem]">
                 Executive report
               </p>
-              <p className="mt-1.5 text-[0.65rem] leading-5 text-white/70 sm:mt-2 sm:text-xs">
+              <p className="mt-1.5 text-[0.65rem] leading-5 text-white/75 sm:mt-2 sm:text-xs">
                 Pricing pressure verified. Recommended action: brief strategic accounts and prepare
                 retention offers.
               </p>
-            </Card>
+            </div>
           </motion.div>
         </div>
 

@@ -72,8 +72,8 @@ function CoreSystem() {
 
 export function HeroVisual() {
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[2rem]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(83,244,255,0.18),transparent_38%),radial-gradient(circle_at_65%_70%,rgba(168,85,247,0.18),transparent_46%)] blur-xl" />
+    <div className="pointer-events-none absolute inset-0">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(83,244,255,0.14),transparent_42%),radial-gradient(circle_at_65%_70%,rgba(168,85,247,0.12),transparent_50%)] blur-2xl" />
       <Canvas
         camera={{ position: [0, 0.2, 6.8], fov: 34 }}
         dpr={[1, 1.75]}
