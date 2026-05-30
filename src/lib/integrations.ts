@@ -19,6 +19,7 @@ import {
   allowBrightDataDemoFallback,
   isProductionDeploy,
 } from "@/lib/bright-data/config";
+import { isBrightDataMcpEnabled } from "@/lib/bright-data/config";
 import { isSpeechmaticsConfigured } from "@/services/speechmatics-tts";
 import { discoverBrightDataZones } from "@/services/bright-data";
 import {
@@ -27,12 +28,23 @@ import {
   getPlatformSecretsSource,
 } from "@/lib/secrets/platform-secrets";
 
-function buildBrightDataStatus(serpZone: boolean, unlockerZone: boolean, brightDataKey: boolean) {
+function buildBrightDataStatus(
+  serpZone: boolean,
+  unlockerZone: boolean,
+  brightDataKey: boolean,
+  extras?: { scraperZone?: boolean; browserZone?: boolean; mcpReady?: boolean },
+) {
+  const scraperZone = extras?.scraperZone ?? false;
+  const browserZone = extras?.browserZone ?? false;
+  const mcpReady = extras?.mcpReady ?? false;
   return {
     apiKey: brightDataKey,
     serpZone,
     unlockerZone,
-    ready: brightDataKey && (serpZone || unlockerZone),
+    scraperZone,
+    browserZone,
+    mcpReady,
+    ready: brightDataKey && serpZone && unlockerZone,
     message: !brightDataKey
       ? "Add BRIGHT_DATA_API_KEY to Supabase vault (npm run secrets:sync) or .env.local"
       : !serpZone && !unlockerZone
@@ -49,6 +61,9 @@ export function getIntegrationStatus() {
   const brightDataKey = Boolean(getPlatformEnv("BRIGHT_DATA_API_KEY"));
   const serpZone = Boolean(getPlatformEnv("BRIGHT_DATA_SERP_ZONE"));
   const unlockerZone = Boolean(getPlatformEnv("BRIGHT_DATA_WEB_UNLOCKER_ZONE"));
+  const scraperZone = Boolean(getPlatformEnv("BRIGHT_DATA_SCRAPER_ZONE"));
+  const browserZone = Boolean(getPlatformEnv("BRIGHT_DATA_BROWSER_ZONE"));
+  const mcpReady = brightDataKey && isBrightDataMcpEnabled();
   const llmReady = isLlmConfigured();
   const secretsSource = getPlatformSecretsSource();
 
@@ -86,7 +101,11 @@ export function getIntegrationStatus() {
           vision: getFeatherlessVisionModel(),
         }
       : null,
-    brightData: buildBrightDataStatus(serpZone, unlockerZone, brightDataKey),
+    brightData: buildBrightDataStatus(serpZone, unlockerZone, brightDataKey, {
+      scraperZone,
+      browserZone,
+      mcpReady,
+    }),
     hackathon: {
       track: "GTM Intelligence" as const,
       production: isProductionDeploy(),
@@ -108,11 +127,21 @@ export async function getIntegrationStatusWithDiscovery() {
   const discovered = await discoverBrightDataZones(apiKey);
   const serpZone = base.brightData.serpZone || Boolean(discovered.serp);
   const unlockerZone = base.brightData.unlockerZone || Boolean(discovered.unlocker);
-  const brightData = buildBrightDataStatus(serpZone, unlockerZone, base.brightData.apiKey);
+  const brightData = buildBrightDataStatus(serpZone, unlockerZone, base.brightData.apiKey, {
+    scraperZone: base.brightData.scraperZone || Boolean(discovered.scraper),
+    browserZone: base.brightData.browserZone || Boolean(discovered.browser),
+    mcpReady: base.brightData.mcpReady,
+  });
   const envHints: string[] = [];
   if (!base.brightData.serpZone && discovered.serp) envHints.push(`BRIGHT_DATA_SERP_ZONE=${discovered.serp}`);
   if (!base.brightData.unlockerZone && discovered.unlocker) {
     envHints.push(`BRIGHT_DATA_WEB_UNLOCKER_ZONE=${discovered.unlocker}`);
+  }
+  if (!base.brightData.scraperZone && discovered.scraper) {
+    envHints.push(`BRIGHT_DATA_SCRAPER_ZONE=${discovered.scraper}`);
+  }
+  if (!base.brightData.browserZone && discovered.browser) {
+    envHints.push(`BRIGHT_DATA_BROWSER_ZONE=${discovered.browser}`);
   }
   if (envHints.length) {
     brightData.message = `Zones found in your Bright Data account. Add to .env.local: ${envHints.join(" ")}`;

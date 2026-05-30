@@ -6,8 +6,9 @@ import {
   BrightDataCollectionError,
   BrightDataNotConfiguredError,
 } from "@/lib/bright-data/config";
-import { collectWebIntelligence } from "@/services/bright-data";
+import { planGtmCollection } from "@/lib/bright-data/router";
 import { createExecutiveReport } from "@/services/intelligence-report";
+import { bundleToLegacyEvidence, collectFromPlan } from "@/services/gtm-research";
 import { generateEnterpriseAnalysis } from "@/services/openai";
 import type { Severity } from "@/types/intelligence";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -37,11 +38,15 @@ export async function runMonitorCheck(
     persist?: boolean;
   },
 ): Promise<MonitorCheckResult> {
-  const webEvidence = await collectWebIntelligence({
-    query: monitor.requirement,
-    targetUrl: monitor.target_url ?? undefined,
-    mode: monitor.target_url ? "unlocker" : "serp",
-  });
+  const plan = planGtmCollection(
+    monitor.target_url
+      ? `${monitor.requirement} ${monitor.target_url}`
+      : monitor.requirement,
+    { preferMcp: true },
+  );
+
+  const bundle = await collectFromPlan(plan, { multiSource: true });
+  const webEvidence = bundleToLegacyEvidence(bundle);
 
   const analysis = await generateEnterpriseAnalysis(monitor.requirement, webEvidence.evidence);
 

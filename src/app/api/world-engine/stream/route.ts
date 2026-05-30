@@ -2,7 +2,8 @@ import { requireApiUser } from "@/lib/auth/session";
 import { isAimlConfigured, isLlmConfigured } from "@/lib/llm/client";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { ensurePlatformSecrets, getPlatformEnv } from "@/lib/secrets/platform-secrets";
-import { collectDemoWebIntelligence, collectWebIntelligence } from "@/services/bright-data";
+import { requiresLiveBrightData } from "@/lib/bright-data/config";
+import { bundleToLegacyEvidence, runGtmResearch } from "@/services/gtm-research";
 import { encodeSse, RealtimeLogService } from "@/services/realtime-log";
 import { generateWorldEngineReport } from "@/services/world-engine";
 import type { ActivityStreamEvent } from "@/types/activity-console";
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
       serp?: boolean;
       scraper?: boolean;
       webUnlocker?: boolean;
+      mcp?: boolean;
     };
   } | null;
   const query = body?.query?.trim().slice(0, 1500);
@@ -142,10 +144,27 @@ export async function POST(request: Request) {
         });
 
         const collectionStartedAt = performance.now();
-        const evidence = brightDataConfigured
-          ? await collectWebIntelligence({ query, mode: "serp" })
-          : collectDemoWebIntelligence(query);
+        const bundle = await runGtmResearch(query, {
+          preferMcp: body?.brightData?.mcp !== false,
+          multiSource: true,
+        });
+        const evidence = bundleToLegacyEvidence(bundle);
         const collectionLatency = Math.round(performance.now() - collectionStartedAt);
+
+        if (requiresLiveBrightData() && evidence.provider !== "bright-data") {
+          const bdMessage =
+            "Bright Data is required for World Engine in production. Configure SERP and Web Unlocker zones in Settings.";
+          logs.log({
+            category: "SERP",
+            stage: "Evidence collection",
+            message: bdMessage,
+            level: "error",
+          });
+          logs.setStatus("failed", "Bright Data required");
+          emit({ type: "error", message: bdMessage });
+          return;
+        }
+
         if (evidence.provider === "bright-data") {
           logs.source({
             id: "bright-data-serp",

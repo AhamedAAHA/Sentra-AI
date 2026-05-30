@@ -7,6 +7,7 @@ import {
   BrightDataCollectionError,
   type BrightDataMode,
 } from "@/lib/bright-data/config";
+import { resolveAllBrightDataZones, type ResolvedBrightDataZones } from "@/lib/bright-data/zones";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlatformEnv } from "@/lib/secrets/platform-secrets";
 import { getSupabaseServiceRoleKey } from "@/lib/supabase/env";
@@ -16,33 +17,43 @@ export {
   allowBrightDataDemoFallback,
   BrightDataCollectionError,
   BrightDataNotConfiguredError,
+  getBrightDataProductStatuses,
   getBrightDataReadiness,
+  getBrightDataReadinessWithZones,
   requiresLiveBrightData,
 } from "@/lib/bright-data/config";
 
-type BrightDataEvidence = {
+export type BrightDataEvidence = {
   provider: "bright-data" | "demo";
   query: string;
   evidence: string;
+  collectionMode?: BrightDataMode;
   raw?: unknown;
   cacheHit?: boolean;
 };
 
-const endpointByMode = {
+export type GtmEvidenceBundle = {
+  provider: "bright-data" | "demo";
+  query: string;
+  targetUrl?: string;
+  steps: Array<{ mode: BrightDataMode; label: string; evidence: string }>;
+  evidence: string;
+  plan?: import("@/lib/bright-data/router").GtmRoutePlan;
+};
+
+const endpointByMode: Record<Exclude<BrightDataMode, "mcp">, keyof ResolvedBrightDataZones | null> = {
+  serp: "serp",
+  unlocker: "unlocker",
+  scraper: "scraper",
+  browser: "browser",
+};
+
+const endpointEnvByMode: Record<Exclude<BrightDataMode, "mcp">, string> = {
   serp: "BRIGHT_DATA_SERP_ENDPOINT",
   unlocker: "BRIGHT_DATA_WEB_UNLOCKER_ENDPOINT",
   scraper: "BRIGHT_DATA_SCRAPER_ENDPOINT",
-  browser: "BRIGHT_DATA_SCRAPER_ENDPOINT",
-} as const;
-
-const zoneByMode = {
-  serp: "BRIGHT_DATA_SERP_ZONE",
-  unlocker: "BRIGHT_DATA_WEB_UNLOCKER_ZONE",
-} as const;
-
-type BrightDataZone = { name: string; type: string };
-
-let resolvedZones: { serp?: string; unlocker?: string } | null = null;
+  browser: "BRIGHT_DATA_BROWSER_ENDPOINT",
+};
 
 function getCacheTtlSeconds() {
   const raw = Number(getPlatformEnv("BRIGHT_DATA_CACHE_TTL_SECONDS") ?? 900);
@@ -93,55 +104,16 @@ async function writeCache(cacheKey: string, value: BrightDataEvidence) {
   }
 }
 
-async function fetchActiveBrightDataZones(apiKey: string) {
-  const response = await axios.get<BrightDataZone[]>("https://api.brightdata.com/zone/get_active_zones", {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      Accept: "application/json",
-    },
-    timeout: 15000,
-  });
-
-  const zones = response.data ?? [];
-  return {
-    serp: zones.find((zone) => zone.type === "serp")?.name,
-    unlocker: zones.find((zone) => zone.type === "unblocker" || zone.type === "unlocker")?.name,
-  };
+export async function discoverBrightDataZones(apiKey: string) {
+  const { fetchActiveBrightDataZones } = await import("@/lib/bright-data/zones");
+  return fetchActiveBrightDataZones(apiKey);
 }
 
-export async function discoverBrightDataZones(apiKey: string): Promise<{ serp?: string; unlocker?: string }> {
-  const managementKey = getPlatformEnv("BRIGHT_DATA_MANAGEMENT_KEY");
-  const keys = [apiKey, managementKey].filter(Boolean) as string[];
-
-  for (const key of keys) {
-    try {
-      return await fetchActiveBrightDataZones(key);
-    } catch (error) {
-      console.error("Unable to discover Bright Data zones with provided key", error);
-    }
-  }
-
-  return {};
-}
-
-async function resolveBrightDataZones(apiKey: string) {
-  if (resolvedZones) return resolvedZones;
-
-  const envSerp = getPlatformEnv("BRIGHT_DATA_SERP_ZONE");
-  const envUnlocker = getPlatformEnv("BRIGHT_DATA_WEB_UNLOCKER_ZONE");
-  if (envSerp || envUnlocker) {
-    resolvedZones = { serp: envSerp, unlocker: envUnlocker };
-    return resolvedZones;
-  }
-
-  resolvedZones = await discoverBrightDataZones(apiKey);
-  return resolvedZones;
-}
-
-function getDemoEvidence(query: string): BrightDataEvidence {
+function getDemoEvidence(query: string, mode: BrightDataMode = "serp"): BrightDataEvidence {
   return {
     provider: "demo",
     query,
+    collectionMode: mode,
     evidence: signalStream
       .map((signal) => `${signal.title}: ${signal.summary} Source=${signal.source}`)
       .join("\n"),
@@ -152,37 +124,86 @@ export function collectDemoWebIntelligence(query: string): BrightDataEvidence {
   return getDemoEvidence(query);
 }
 
+async function resolveZoneForMode(mode: Exclude<BrightDataMode, "mcp">, zones: ResolvedBrightDataZones) {
+  const zoneKey = endpointByMode[mode];
+  if (!zoneKey) return null;
+  const fromEnv =
+    mode === "serp"
+      ? getPlatformEnv("BRIGHT_DATA_SERP_ZONE")
+      : mode === "unlocker"
+        ? getPlatformEnv("BRIGHT_DATA_WEB_UNLOCKER_ZONE")
+        : mode === "scraper"
+          ? getPlatformEnv("BRIGHT_DATA_SCRAPER_ZONE")
+          : getPlatformEnv("BRIGHT_DATA_BROWSER_ZONE");
+  return fromEnv || zones[zoneKey] || null;
+}
+
+function buildRequestPayload(
+  mode: Exclude<BrightDataMode, "mcp">,
+  zone: string,
+  query: string,
+  targetUrl?: string,
+) {
+  if (mode === "serp") {
+    return {
+      zone,
+      url: `https://www.google.com/search?q=${encodeURIComponent(query)}&brd_json=1&gl=us&hl=en`,
+      format: "json",
+      method: "GET",
+      country: "us",
+    };
+  }
+
+  if (mode === "unlocker" || mode === "browser") {
+    return {
+      zone,
+      url: targetUrl,
+      format: "json",
+      method: "GET",
+      country: "us",
+      data_format: "markdown",
+    };
+  }
+
+  return {
+    zone,
+    url: targetUrl,
+    format: "json",
+    method: "GET",
+    country: "us",
+    data_format: "markdown",
+    parse: true,
+  };
+}
+
+function isModeMisconfigured(
+  mode: Exclude<BrightDataMode, "mcp">,
+  apiKey: string | undefined,
+  endpoint: string | undefined,
+  zone: string | null,
+  targetUrl?: string,
+) {
+  if (!apiKey || !endpoint || !zone) return true;
+  if ((mode === "unlocker" || mode === "browser" || mode === "scraper") && !targetUrl) return true;
+  return false;
+}
+
 export async function collectWebIntelligence({
   query,
   targetUrl,
   mode = "serp",
 }: BrightDataRequest): Promise<BrightDataEvidence> {
-  const effectiveMode = (mode === "scraper" && targetUrl ? "unlocker" : mode) as BrightDataMode;
-  const endpointKey = endpointByMode[effectiveMode];
-  const endpoint = getPlatformEnv(endpointKey);
+  const effectiveMode = mode;
   const apiKey = getPlatformEnv("BRIGHT_DATA_API_KEY");
-  const zoneKey =
-    effectiveMode === "serp" || effectiveMode === "unlocker" ? zoneByMode[effectiveMode] : null;
-  let zone = zoneKey ? getPlatformEnv(zoneKey) : null;
+  const endpoint = getPlatformEnv(endpointEnvByMode[effectiveMode]);
+  const zones = apiKey ? await resolveAllBrightDataZones() : {};
+  const zone = await resolveZoneForMode(effectiveMode, zones);
 
-  if (apiKey && zoneKey && !zone) {
-    const zones = await resolveBrightDataZones(apiKey);
-    zone = effectiveMode === "serp" ? zones.serp : zones.unlocker;
-  }
-
-  const misconfigured =
-    !apiKey || !endpoint || (zoneKey && !zone) || (effectiveMode === "unlocker" && !targetUrl);
-
-  if (misconfigured) {
-    if (apiKey && zoneKey && !zone) {
-      console.warn(
-        "Bright Data zone not configured. Create a SERP or Web Unlocker zone in the Bright Data control panel.",
-      );
-    }
+  if (isModeMisconfigured(effectiveMode, apiKey, endpoint, zone, targetUrl)) {
     if (!allowBrightDataDemoFallback()) {
-      assertBrightDataReady({ query, targetUrl, mode });
+      assertBrightDataReady({ query, targetUrl, mode: effectiveMode });
     }
-    return getDemoEvidence(query);
+    return getDemoEvidence(query, effectiveMode);
   }
 
   const cacheKey = buildCacheKey(effectiveMode, zone!, query, targetUrl);
@@ -193,42 +214,19 @@ export async function collectWebIntelligence({
   }
 
   try {
-    const payload =
-      effectiveMode === "serp"
-        ? {
-            zone,
-            url: `https://www.google.com/search?q=${encodeURIComponent(query)}&brd_json=1&gl=us&hl=en`,
-            format: "json",
-            method: "GET",
-            country: "us",
-          }
-        : effectiveMode === "unlocker"
-          ? {
-              zone,
-              url: targetUrl,
-              format: "json",
-              method: "GET",
-              country: "us",
-              data_format: "markdown",
-            }
-          : {
-              query,
-              url: targetUrl,
-              parse: true,
-              country: "us",
-            };
-
-    const response = await axios.post(endpoint, payload, {
+    const payload = buildRequestPayload(effectiveMode, zone!, query, targetUrl);
+    const response = await axios.post(endpoint!, payload, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      timeout: 30000,
+      timeout: effectiveMode === "browser" ? 45_000 : 30_000,
     });
 
     const result: BrightDataEvidence = {
       provider: "bright-data",
       query,
+      collectionMode: effectiveMode,
       evidence: JSON.stringify(response.data).slice(0, 8000),
       raw: response.data,
       cacheHit: false,
@@ -246,7 +244,7 @@ export async function collectWebIntelligence({
         error,
       );
     }
-    return getDemoEvidence(query);
+    return getDemoEvidence(query, effectiveMode);
   }
 }
 

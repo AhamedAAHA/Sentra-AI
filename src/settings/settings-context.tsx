@@ -35,6 +35,7 @@ export type SentraSettings = {
     serp: boolean;
     scraper: boolean;
     webUnlocker: boolean;
+    mcp: boolean;
     lastSync?: string;
   };
   experience: {
@@ -94,6 +95,7 @@ export const defaultSettings: SentraSettings = {
     serp: true,
     scraper: true,
     webUnlocker: true,
+    mcp: true,
   },
   experience: {
     animations: true,

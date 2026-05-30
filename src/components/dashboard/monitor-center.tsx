@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { gtmMonitorTemplates } from "@/data/gtm-monitor-templates";
 import { signalStream } from "@/data/mock-intelligence";
 import { isBrowserSupabaseConfigured } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -667,6 +668,27 @@ export function MonitorCenter() {
           <Badge variant={webhookSending ? "cyan" : webhookUrl.trim() ? "success" : "default"}>
             {webhookSending ? "Sending" : webhookUrl.trim() ? "Webhook armed" : "Webhook optional"}
           </Badge>
+        </div>
+
+        <div className="mt-5">
+          <p className="text-xs font-medium uppercase tracking-wide text-white/40">GTM monitor templates</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {gtmMonitorTemplates.map((template) => (
+              <Button
+                key={template.id}
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-auto max-w-full whitespace-normal px-3 py-2 text-left text-xs"
+                onClick={() => {
+                  setRequirement(template.requirement);
+                  setCategory(template.category);
+                }}
+              >
+                {template.title}
+              </Button>
+            ))}
+          </div>
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_180px_180px]">
