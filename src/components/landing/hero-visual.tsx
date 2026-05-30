@@ -72,20 +72,18 @@ function CoreSystem() {
 
 export function HeroVisual() {
   return (
-    <div className="pointer-events-none absolute inset-0">
-      <div className="absolute inset-[-20%] bg-[radial-gradient(ellipse_at_52%_42%,rgba(83,244,255,0.14),transparent_52%),radial-gradient(ellipse_at_68%_62%,rgba(168,85,247,0.1),transparent_58%)]" />
-      <div className="absolute inset-0 [mask-image:radial-gradient(ellipse_at_50%_48%,#000_18%,transparent_72%)]">
-        <Canvas
-          camera={{ position: [0, 0.2, 6.8], fov: 34 }}
-          dpr={[1, 1.75]}
-          gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-        >
-          <ambientLight intensity={0.7} />
-          <pointLight position={[3, 4, 4]} intensity={3.2} color="#63f7ff" />
-          <pointLight position={[-4, -2, 3]} intensity={1.4} color="#ad78ff" />
-          <CoreSystem />
-        </Canvas>
-      </div>
+    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[2rem]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(83,244,255,0.18),transparent_38%),radial-gradient(circle_at_65%_70%,rgba(168,85,247,0.18),transparent_46%)] blur-xl" />
+      <Canvas
+        camera={{ position: [0, 0.2, 6.8], fov: 34 }}
+        dpr={[1, 1.75]}
+        gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+      >
+        <ambientLight intensity={0.7} />
+        <pointLight position={[3, 4, 4]} intensity={3.2} color="#63f7ff" />
+        <pointLight position={[-4, -2, 3]} intensity={1.4} color="#ad78ff" />
+        <CoreSystem />
+      </Canvas>
     </div>
   );
 }
