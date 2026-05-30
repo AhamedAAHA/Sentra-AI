@@ -7,7 +7,30 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
-import { ALL_PLATFORM_ENV_KEYS } from "../src/lib/secrets/keys.ts";
+const ALL_PLATFORM_ENV_KEYS = [
+  "AIML_API_KEY",
+  "FEATHERLESS_API_KEY",
+  "BRIGHT_DATA_API_KEY",
+  "BRIGHT_DATA_MANAGEMENT_KEY",
+  "ELEVENLABS_API_KEY",
+  "SPEECHMATICS_API_KEY",
+  "BRIGHT_DATA_SERP_ZONE",
+  "BRIGHT_DATA_WEB_UNLOCKER_ZONE",
+  "BRIGHT_DATA_SCRAPER_ZONE",
+  "BRIGHT_DATA_BROWSER_ZONE",
+  "BRIGHT_DATA_SERP_ENDPOINT",
+  "BRIGHT_DATA_WEB_UNLOCKER_ENDPOINT",
+  "BRIGHT_DATA_SCRAPER_ENDPOINT",
+  "BRIGHT_DATA_BROWSER_ENDPOINT",
+  "BRIGHT_DATA_STUDIO_COLLECTOR_ID",
+  "BRIGHT_DATA_MCP_URL",
+  "BRIGHT_DATA_MCP_GROUPS",
+  "BRIGHT_DATA_CACHE_TTL_SECONDS",
+  "AIML_BASE_URL",
+  "FEATHERLESS_BASE_URL",
+  "SPEECHMATICS_TTS_URL",
+  "SPEECHMATICS_TTS_VOICE",
+];
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const STORAGE_BUCKET = "sentra-platform-secrets";

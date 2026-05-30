@@ -23,3 +23,6 @@ next-dev*.log
 # misc
 .DS_Store
 *.pem
+scripts/restore-vault-now.mjs
+*.mjs
+/scripts
