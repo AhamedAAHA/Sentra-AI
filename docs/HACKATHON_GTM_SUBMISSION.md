@@ -19,10 +19,15 @@ Sentra is built on Next.js 15, Supabase (auth + persistence + API key vault), an
 
 | Product | Usage |
 |---------|--------|
-| **SERP API** | Monitor checks without URL, dashboard briefing, competitor keyword chat |
-| **Web Unlocker** | HTTPS competitor URLs in chat and monitors |
+| **SERP API** | Monitors, dashboard briefing, keyword GTM chat |
+| **Web Unlocker** | HTTPS competitor URLs in chat, monitors, World Engine |
+| **Web Scraper** | Multi-source GTM bundles (pricing/pages) |
+| **Scraping Browser** | JS-heavy competitor pages when zone configured |
+| **Bright Data MCP** | `search_engine` + `scrape_as_markdown` via `/api/agent/gtm-research` |
+| **Scraper Studio** (optional) | `BRIGHT_DATA_STUDIO_COLLECTOR_ID` when collector built in CP |
 
-Promo code: `unlocked` on [brightdata.com](https://brightdata.com).
+Promo code: `unlocked` on [brightdata.com](https://brightdata.com).  
+Operator checklist: [USER_SETUP.md](./USER_SETUP.md).
 
 ## Technology tags (lablab)
 

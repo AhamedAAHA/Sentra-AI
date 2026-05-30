@@ -155,7 +155,8 @@ remain functional.
 ## Hackathon — GTM Intelligence (Web Data UNLOCKED)
 
 **Track:** [GTM Intelligence](https://lablab.ai/ai-hackathons/brightdata-ai-agents-web-data-hackathon)  
-**Full submission guide:** [docs/HACKATHON_GTM_SUBMISSION.md](docs/HACKATHON_GTM_SUBMISSION.md)
+**Full submission guide:** [docs/HACKATHON_GTM_SUBMISSION.md](docs/HACKATHON_GTM_SUBMISSION.md)  
+**Operator setup (zones, Vercel, vault):** [docs/USER_SETUP.md](docs/USER_SETUP.md)
 
 **Stack:** Bright Data (SERP + Web Unlocker) → AI/ML API → Supabase → Vercel. Voice via Speechmatics.
 

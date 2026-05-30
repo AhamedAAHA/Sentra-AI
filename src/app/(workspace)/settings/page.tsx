@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { BrightDataControlCenter } from "@/components/settings/bright-data-control-center";
 import { type SentraSettings, type VoiceMode, useSettings } from "@/settings/settings-context";
 
 type IntegrationStatus = {
@@ -48,6 +49,9 @@ type IntegrationStatus = {
     apiKey: boolean;
     serpZone: boolean;
     unlockerZone: boolean;
+    scraperZone?: boolean;
+    browserZone?: boolean;
+    mcpReady?: boolean;
     ready: boolean;
     message: string;
   };
@@ -206,7 +210,9 @@ export default function SettingsPage() {
         <SettingsCard icon={DatabaseZap} title="Bright Data Settings" subtitle="Control live web collection and demo-safe fallback routing.">
           <ToggleRow label="Bright Data SERP" checked={settings.brightData.serp} onChange={(value) => patchSection("brightData", { serp: value })} />
           <ToggleRow label="Bright Data Scraper" checked={settings.brightData.scraper} onChange={(value) => patchSection("brightData", { scraper: value })} />
-          <ToggleRow label="Web Unlocker fallback" checked={settings.brightData.webUnlocker} onChange={(value) => patchSection("brightData", { webUnlocker: value })} />
+          <ToggleRow label="Web Unlocker" checked={settings.brightData.webUnlocker} onChange={(value) => patchSection("brightData", { webUnlocker: value })} />
+          <ToggleRow label="Bright Data MCP (search + scrape)" checked={settings.brightData.mcp} onChange={(value) => patchSection("brightData", { mcp: value })} />
+          <BrightDataControlCenter />
           <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -270,6 +276,9 @@ export default function SettingsPage() {
           <StatusRow label="Bright Data API key" ok={status?.brightData?.apiKey} />
           <StatusRow label="Bright Data SERP zone" ok={status?.brightData?.serpZone} />
           <StatusRow label="Bright Data Unlocker zone" ok={status?.brightData?.unlockerZone} />
+          <StatusRow label="Bright Data Scraper zone" ok={status?.brightData?.scraperZone} />
+          <StatusRow label="Bright Data Browser zone" ok={status?.brightData?.browserZone} />
+          <StatusRow label="Bright Data MCP" ok={status?.brightData?.mcpReady} />
         </ul>
         {status?.brightData?.message && (
           <p className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/60">

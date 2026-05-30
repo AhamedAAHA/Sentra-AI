@@ -7,38 +7,19 @@ import { isAimlConfigured, isLlmConfigured } from "@/lib/llm/client";
 import {
   BrightDataCollectionError,
   BrightDataNotConfiguredError,
-  collectWebIntelligence,
   requiresLiveBrightData,
 } from "@/services/bright-data";
+import { planGtmCollection } from "@/lib/bright-data/router";
+import { bundleToLegacyEvidence, collectFromPlan, runGtmResearch } from "@/services/gtm-research";
 import { generateChatResponse, resolveDocumentChatProvider } from "@/services/openai";
-import type { BrightDataRequest, ChatDocumentEvidence, ChatMessage, ChatProvider } from "@/types/intelligence";
+import type { ChatDocumentEvidence, ChatMessage, ChatProvider } from "@/types/intelligence";
 
 export const runtime = "nodejs";
 
 const collectionIntent =
-  /\b(monitor|monitoring|track|tracking|watch|scrape|extract|crawl|competitor|competitive|pricing|price changes?|website changes?|product launches?|hiring signals?|compare (?:plans|prices|pricing))\b/i;
+  /\b(monitor|monitoring|track|tracking|watch|scrape|extract|crawl|competitor|competitive|pricing|price changes?|website changes?|product launches?|hiring signals?|compare (?:plans|prices|pricing)|https?:\/\/)/i;
 
 const MAX_MESSAGE_LENGTH = 4000;
-
-function getTargetUrl(message: string) {
-  const match = message.match(/https?:\/\/[^\s<>()\]]+/i)?.[0]?.replace(/[.,;!?]+$/, "");
-  if (!match) return undefined;
-
-  try {
-    return new URL(match).toString();
-  } catch {
-    return undefined;
-  }
-}
-
-function getCollectionRequest(message: string): BrightDataRequest | null {
-  const targetUrl = getTargetUrl(message);
-  if (targetUrl) {
-    return { query: message, targetUrl, mode: "unlocker" };
-  }
-
-  return collectionIntent.test(message) ? { query: message, mode: "serp" } : null;
-}
 
 function getHistory(value: unknown): Pick<ChatMessage, "role" | "content">[] {
   if (!Array.isArray(value)) return [];
@@ -74,7 +55,9 @@ export async function POST(request: Request) {
         serp?: boolean;
         scraper?: boolean;
         webUnlocker?: boolean;
+        mcp?: boolean;
       };
+      useGtmAgent?: boolean;
     };
 
     const documentEvidence =
@@ -119,30 +102,34 @@ export async function POST(request: Request) {
       ? resolveDocumentChatProvider(false)
       : "aiml-search";
     let brightDataEvidence: string | undefined;
-    const collectionRequest = getCollectionRequest(message);
 
-    const brightDataEnabled = collectionRequest
-      ? collectionRequest.mode === "unlocker"
-        ? body.brightData?.webUnlocker !== false
-        : body.brightData?.serp !== false
-      : true;
+    const wantsCollection = collectionIntent.test(message) || body.useGtmAgent === true;
+    const brightDataEnabled =
+      body.brightData?.serp !== false &&
+      body.brightData?.webUnlocker !== false &&
+      body.brightData?.scraper !== false;
 
-    if (collectionRequest && brightDataEnabled) {
-      const evidence = await collectWebIntelligence(collectionRequest);
-      if (requiresLiveBrightData() && evidence.provider !== "bright-data") {
+    if (wantsCollection && brightDataEnabled) {
+      const bundle = body.useGtmAgent
+        ? await runGtmResearch(message, { preferMcp: body.brightData?.mcp !== false, multiSource: true })
+        : await collectFromPlan(planGtmCollection(message, { preferMcp: body.brightData?.mcp !== false }), {
+            multiSource: true,
+          });
+
+      if (requiresLiveBrightData() && bundle.provider !== "bright-data") {
         return NextResponse.json(
           {
             error:
-              "Bright Data is required for competitor and monitoring prompts in production. Configure SERP and Web Unlocker zones in Settings.",
+              "Bright Data is required for GTM collection in production. Configure all zones in Settings → Bright Data control center.",
           },
           { status: 503 },
         );
       }
-      if (evidence.provider === "bright-data") {
-        brightDataEvidence = evidence.evidence;
-        provider = documentEvidence
-          ? resolveDocumentChatProvider(true)
-          : "aiml-bright-data";
+
+      if (bundle.provider === "bright-data") {
+        const legacy = bundleToLegacyEvidence(bundle);
+        brightDataEvidence = legacy.evidence;
+        provider = documentEvidence ? resolveDocumentChatProvider(true) : "aiml-bright-data";
       }
     }
 
