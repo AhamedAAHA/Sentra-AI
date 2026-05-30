@@ -27,4 +27,5 @@ tmp/
 scripts/restore-vault-now.mjs
 *.mjs
 !netlify/functions/*.mjs
+!scripts/configure-supabase-auth.mjs
 /scripts
