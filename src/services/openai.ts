@@ -25,6 +25,7 @@ import {
   getFeatherlessFastModel,
   isFeatherlessConfigured,
 } from "@/lib/llm/featherless";
+import { sliceDocumentForContext } from "@/lib/documents/extract-text";
 import { formatWorkspaceContextForPrompt, type WorkspaceContext } from "@/lib/gtm/workspace-context";
 import {
   buildMonitorSearchQuery,

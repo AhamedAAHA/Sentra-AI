@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/session";
 import { appendChatMessage, createChatThread } from "@/lib/db/chat";
+import { recordProviderUsage } from "@/lib/provider-usage";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { ensurePlatformSecrets } from "@/lib/secrets/platform-secrets";
 import { isAimlConfigured, isLlmConfigured } from "@/lib/llm/client";
@@ -128,6 +129,7 @@ export async function POST(request: Request) {
       }
 
       if (bundle.provider === "bright-data") {
+        void recordProviderUsage("bright_data");
         const legacy = bundleToLegacyEvidence(bundle);
         brightDataEvidence = legacy.evidence;
         provider = documentEvidence
@@ -136,6 +138,12 @@ export async function POST(request: Request) {
             ? "gtm-agent"
             : "aiml-bright-data";
       }
+    }
+
+    if (provider.includes("featherless")) {
+      void recordProviderUsage("featherless");
+    } else if (provider.includes("aiml") || provider === "gtm-agent") {
+      void recordProviderUsage("aiml");
     }
 
     const response = await generateChatResponse(message, {
