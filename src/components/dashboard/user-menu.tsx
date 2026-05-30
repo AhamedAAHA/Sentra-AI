@@ -39,7 +39,9 @@ const EMPTY_PROFILE: UserProfile = {};
 export function UserMenu() {
   const router = useRouter();
   const [label, setLabel] = useState<string | null>(null);
-  const [profile, setProfile] = useState<UserProfile>(EMPTY_PROFILE);
+  const [profile, setProfile] = useState<UserProfile>(() =>
+    typeof window !== "undefined" ? getUserProfile() : EMPTY_PROFILE,
+  );
   const [hydrated, setHydrated] = useState(false);
   const [open, setOpen] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
@@ -64,32 +66,39 @@ export function UserMenu() {
   useEffect(() => {
     repairLocalStorageQuota();
     repairLocalSessionFromCookie();
-    const stored = getUserProfile();
-    setProfile(stored);
 
-    if (!isBrowserSupabaseConfigured()) {
-      const session = getLocalSession();
-      setLabel(session?.email ?? null);
-      if (session?.displayName && !stored.displayName) {
-        setProfile((current) => ({ ...current, displayName: session.displayName }));
+    const timeout = window.setTimeout(() => {
+      const stored = getUserProfile();
+      if (stored.displayName || stored.avatarUrl) {
+        setProfile(stored);
       }
-      setHydrated(true);
-      return;
-    }
 
-    const supabase = getBrowserClient();
-    if (!supabase) {
-      setHydrated(true);
-      return;
-    }
+      if (!isBrowserSupabaseConfigured()) {
+        const session = getLocalSession();
+        setLabel(session?.email ?? null);
+        if (session?.displayName && !stored.displayName) {
+          setProfile((current) => ({ ...current, displayName: session.displayName }));
+        }
+        setHydrated(true);
+        return;
+      }
 
-    void supabase.auth.getUser().then((result: UserResponse) => {
-      const user = result.data.user;
-      const email = user?.email ?? user?.id ?? "Account";
-      setLabel(email);
-      setEmailVerified(Boolean(user?.email_confirmed_at));
-      setHydrated(true);
-    });
+      const supabase = getBrowserClient();
+      if (!supabase) {
+        setHydrated(true);
+        return;
+      }
+
+      void supabase.auth.getUser().then((result: UserResponse) => {
+        const user = result.data.user;
+        const email = user?.email ?? user?.id ?? "Account";
+        setLabel(email);
+        setEmailVerified(Boolean(user?.email_confirmed_at));
+        setHydrated(true);
+      });
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
   }, []);
 
   useEffect(() => {

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { AlertTriangle, BellRing, Bot, CheckCircle2, FileCheck2, Pause, Play, Radar, Send, ShieldCheck, Sparkles, TimerReset, Trash2, Workflow, X } from "lucide-react";
+import { AlertTriangle, BellRing, Bot, CheckCircle2, FileCheck2, Pause, Play, Radar, Send, ShieldCheck, Sparkles, TimerReset, Trash2, Workflow, X, Zap } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,13 @@ import { getAlertWebhookUrl, getAutomationWebhookUrl, saveAlertWebhookUrl, saveA
 import { WorkspaceSection } from "@/components/workspace/workspace-page";
 import { isBrowserSupabaseConfigured } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import type { ExecutiveIntelligenceReport, IntelligenceSignal, MonitorIntent, Severity } from "@/types/intelligence";
+import { ChangeDetectionPanel } from "@/components/dashboard/change-detection-panel";
+import { MonitorTimeline } from "@/components/dashboard/monitor-timeline";
+import { initializePresetDemoStorage, PRESET_DEMO_MONITOR_REQUIREMENT } from "@/lib/demo/preset-scenario";
+import { appendTimelineEvents, recordWorkflowTriggered } from "@/lib/monitor-timeline";
+import { loadDetectedChanges, saveDetectedChanges } from "@/services/change-detection";
+import type { DetectedChange, ExecutiveIntelligenceReport, IntelligenceSignal, MonitorIntent, Severity } from "@/types/intelligence";
+import { claimStatusLabel, normalizeClaimStatus } from "@/types/intelligence";
 
 type SignalCategory = IntelligenceSignal["category"];
 
@@ -135,6 +141,11 @@ export function MonitorCenter() {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [automationWebhookUrl, setAutomationWebhookUrl] = useState("");
   const [webhookSending, setWebhookSending] = useState(false);
+  const [detectedChanges, setDetectedChanges] = useState<DetectedChange[]>(() =>
+    typeof window !== "undefined" ? loadDetectedChanges() : [],
+  );
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [timelineKey, setTimelineKey] = useState(0);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">(() =>
     typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported",
   );
@@ -503,10 +514,76 @@ export function MonitorCenter() {
       if (!response.ok) throw new Error(data.error || "Webhook delivery failed.");
       toast.success("Webhook alert delivered.");
       void sendAutomationTrigger(report, monitorId);
+      recordWorkflowTriggered({
+        monitorId,
+        monitorRequirement: report.monitorRequirement,
+        workflowType: "Slack + HubSpot",
+      });
+      setTimelineKey((current) => current + 1);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Webhook delivery failed.");
     } finally {
       setWebhookSending(false);
+    }
+  }
+
+  async function loadPresetDemo() {
+    setDemoLoading(true);
+    try {
+      const response = await fetch("/api/demo/preset", { method: "POST" });
+      const data = (await response.json()) as {
+        monitor?: Monitor;
+        signals?: IntelligenceSignal[];
+        report?: ExecutiveIntelligenceReport;
+        detectedChanges?: DetectedChange[];
+        timeline?: Parameters<typeof appendTimelineEvents>[0];
+        error?: string;
+      };
+
+      if (!response.ok) throw new Error(data.error || "Demo could not be loaded.");
+
+      const bundle = initializePresetDemoStorage();
+      const monitor = data.monitor ?? bundle.monitor;
+      const report = data.report ?? bundle.report;
+      const changes = data.detectedChanges ?? [bundle.detectedChange];
+      const timeline = data.timeline ?? bundle.timeline;
+
+      appendTimelineEvents(timeline);
+      saveDetectedChanges([...changes, ...loadDetectedChanges()]);
+
+      setMonitors((current) => {
+        const withoutDemo = current.filter((item) => item.id !== monitor.id);
+        const next = [{ ...monitor, lastCheckedAt: new Date().toISOString() }, ...withoutDemo];
+        if (!isBrowserSupabaseConfigured()) saveMonitors(next);
+        return next;
+      });
+      setSignals((current) => {
+        const incoming = data.signals ?? bundle.signals;
+        const merged = [...incoming, ...current];
+        const seen = new Set<string>();
+        return merged.filter((signal) => {
+          if (seen.has(signal.id)) return false;
+          seen.add(signal.id);
+          return true;
+        });
+      });
+      setReportsByMonitor((current) => ({ ...current, [monitor.id]: report }));
+      saveLocalReport(report);
+      setDetectedChanges(changes);
+      setTimelineKey((current) => current + 1);
+      setRequirement(PRESET_DEMO_MONITOR_REQUIREMENT);
+      setCategory("pricing");
+      setMinimumSeverity("high");
+
+      toast.success("Competitive pricing demo loaded", {
+        description: "ApexAnalytics Pro changed from $99 to $129 with evidence, report, and timeline.",
+        action: { label: "Open report", onClick: () => openReport(monitor, bundle.signals[0], report) },
+      });
+      openReport(monitor, bundle.signals[0], report);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Demo load failed.");
+    } finally {
+      setDemoLoading(false);
     }
   }
 
@@ -539,6 +616,7 @@ export function MonitorCenter() {
         provider?: string;
         matchedCount?: number;
         report?: ExecutiveIntelligenceReport;
+        detectedChanges?: DetectedChange[];
         error?: string;
       };
 
@@ -558,11 +636,26 @@ export function MonitorCenter() {
         });
       }
 
+      if (data.detectedChanges?.length) {
+        setDetectedChanges((current) => {
+          const merged = [...data.detectedChanges!, ...current];
+          const seen = new Set<string>();
+          const next = merged.filter((change) => {
+            if (seen.has(change.id)) return false;
+            seen.add(change.id);
+            return true;
+          });
+          saveDetectedChanges(next);
+          return next;
+        });
+        setTimelineKey((current) => current + 1);
+      }
+
       const matched = data.signals ?? [];
       if (data.report) {
         setReportsByMonitor((current) => ({ ...current, [monitorId]: data.report! }));
         saveLocalReport(data.report);
-        toast.success("Verified report ready", {
+        toast.success("Evidence-backed report ready", {
           description: data.report.verdict,
           action: { label: "Open", onClick: () => openReport(monitor, matched[0], data.report) },
         });
@@ -707,6 +800,21 @@ export function MonitorCenter() {
         </div>
 
         <div className="mt-5 grid gap-4 rounded-3xl border border-white/10 bg-white/[0.035] p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-white">Competitive pricing demo</p>
+              <p className="mt-1 text-xs leading-5 text-white/42">
+                Load ApexAnalytics, DataForge, and InsightPro with a visible Pro tier change ($99 → $129), evidence, report, and webhook action.
+              </p>
+            </div>
+            <Button variant="neon" onClick={loadPresetDemo} disabled={demoLoading}>
+              <Zap className="h-4 w-4" />
+              {demoLoading ? "Loading demo…" : "Load pricing demo"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 rounded-3xl border border-white/10 bg-white/[0.035] p-4">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end">
             <div className="min-w-0">
               <div className="flex items-center gap-2 text-sm font-medium text-white">
@@ -822,16 +930,8 @@ export function MonitorCenter() {
                       <Badge variant="cyan">{monitorIntent.category}</Badge>
                       <Badge variant="risk">{monitorIntent.minimumSeverity}+ severity</Badge>
                       <Badge variant="default">{Math.round(monitorIntent.confidence * 100)}% confidence</Badge>
-                      <Badge
-                        variant={
-                          monitorIntent.provider === "aiml" || monitorIntent.provider === "featherless"
-                            ? "success"
-                            : "default"
-                        }
-                      >
-                        {monitorIntent.provider === "aiml" || monitorIntent.provider === "featherless"
-                          ? "AI interpreted"
-                          : "Local fallback"}
+                      <Badge variant={monitorIntent.provider === "openai" ? "success" : "default"}>
+                        {monitorIntent.provider === "openai" ? "AI interpreted" : "Local fallback"}
                       </Badge>
                     </div>
                     {monitorIntent.keywords.length > 0 && (
@@ -956,7 +1056,7 @@ export function MonitorCenter() {
                     {(matches[0] || reportsByMonitor[monitor.id]) && (
                       <Button variant="neon" onClick={() => openReport(monitor, matches[0], reportsByMonitor[monitor.id])}>
                         <FileCheck2 className="h-4 w-4" />
-                        Verified report
+                        Evidence-backed report
                       </Button>
                     )}
                     <Button variant="ghost" size="icon" onClick={() => toggleMonitor(monitor.id)}>
@@ -972,6 +1072,12 @@ export function MonitorCenter() {
           </div>
         </Card>
       )}
+
+      {detectedChanges.length > 0 && (
+        <ChangeDetectionPanel changes={detectedChanges.slice(0, 6)} className="xl:col-span-2" />
+      )}
+
+      <MonitorTimeline key={timelineKey} className="xl:col-span-2" />
 
       {selectedReport && (
         <div
@@ -1015,7 +1121,7 @@ export function MonitorCenter() {
             <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
               <div className="border-b border-white/10 p-5 md:p-6 lg:border-b-0 lg:border-r">
                 <p className="text-sm uppercase tracking-[0.24em] text-white/35">
-                  {selectedReport.report ? "Verified evidence" : "Signal details"}
+                  {selectedReport.report ? "Evidence-backed sources" : "Signal details"}
                 </p>
                 {selectedReport.report ? (
                   <div className="mt-5 grid gap-4">
@@ -1042,6 +1148,17 @@ export function MonitorCenter() {
                               <p className="mt-2 break-words text-sm font-medium text-white/72">{source.title}</p>
                             )}
                             <p className="mt-2 text-xs leading-5 text-white/45">{source.claimSupported}</p>
+                            {source.excerpt && (
+                              <p className="mt-2 rounded-xl border border-white/10 bg-black/15 p-2 text-xs leading-5 text-white/50">
+                                &ldquo;{source.excerpt.slice(0, 180)}{source.excerpt.length > 180 ? "…" : ""}&rdquo;
+                              </p>
+                            )}
+                            {source.collectedAt && (
+                              <p className="mt-2 text-xs text-white/35">
+                                Collected {new Date(source.collectedAt).toLocaleString()}
+                                {source.brightDataMode ? ` · ${source.brightDataMode}` : ""}
+                              </p>
+                            )}
                           </div>
                           <Badge variant={source.reliability >= 80 ? "success" : "default"}>{source.reliability}%</Badge>
                         </div>
@@ -1119,20 +1236,56 @@ export function MonitorCenter() {
                           </ul>
                         </div>
                       </div>
+                      {selectedReport.report.detectedChanges && selectedReport.report.detectedChanges.length > 0 && (
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.2em] text-white/35">Snapshot changes</p>
+                          <div className="mt-3 grid gap-2">
+                            {selectedReport.report.detectedChanges.map((change) => (
+                              <div key={change.id} className="rounded-2xl border border-white/10 bg-black/10 p-3">
+                                <p className="text-sm font-medium text-white">
+                                  {change.field}: {change.oldValue} → {change.newValue}
+                                </p>
+                                <p className="mt-1 text-xs text-white/45">{new Date(change.detectedAt).toLocaleString()}</p>
+                                <a href={change.sourceUrl} target="_blank" rel="noreferrer" className="mt-2 block truncate text-xs text-cyan-100/70">
+                                  {change.sourceUrl}
+                                </a>
+                                <p className="mt-2 text-xs leading-5 text-white/50">{change.impact}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <div>
                         <p className="text-xs uppercase tracking-[0.2em] text-white/35">Claim verification</p>
                         <div className="mt-3 grid gap-2">
-                          {selectedReport.report.verifiedClaims.map((claim) => (
+                          {selectedReport.report.verifiedClaims.map((claim) => {
+                            const status = normalizeClaimStatus(claim.status);
+                            return (
                             <div key={claim.id} className="rounded-2xl border border-white/10 bg-black/10 p-3">
                               <div className="flex items-center justify-between gap-3">
-                                <Badge variant={claim.status === "verified" ? "success" : claim.status === "partial" ? "default" : "risk"}>
-                                  {claim.status}
+                                <Badge variant={status === "evidence-backed" ? "success" : status === "partial" ? "default" : "risk"}>
+                                  {claimStatusLabel(status)}
                                 </Badge>
                                 <span className="text-xs text-cyan-100/58">{claim.confidence}%</span>
                               </div>
                               <p className="mt-2 text-sm leading-6 text-white/64">{claim.claim}</p>
+                              {claim.sourceRecords?.map((record) => (
+                                <div key={`${claim.id}-${record.sourceId}`} className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                                  {record.url && (
+                                    <a href={record.url} target="_blank" rel="noreferrer" className="block truncate text-xs text-cyan-100/75">
+                                      {record.url}
+                                    </a>
+                                  )}
+                                  <p className="mt-2 text-xs leading-5 text-white/48">&ldquo;{record.excerpt.slice(0, 200)}{record.excerpt.length > 200 ? "…" : ""}&rdquo;</p>
+                                  <p className="mt-2 text-xs text-white/35">
+                                    Collected {new Date(record.collectedAt).toLocaleString()}
+                                    {record.brightDataMode ? ` · Bright Data ${record.brightDataMode}` : ""}
+                                  </p>
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                          );
+                          })}
                         </div>
                       </div>
                       <div className="border-t border-white/10 pt-5">

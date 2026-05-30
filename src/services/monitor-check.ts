@@ -1,6 +1,11 @@
 import { getSignalsForRun, saveIntelligenceRun } from "@/lib/db/intelligence";
 import { recordMonitorEvents, updateMonitorChecked } from "@/lib/db/monitors";
 import { saveIntelligenceReport } from "@/lib/db/reports";
+import {
+  recordChangeDetected,
+  recordCheckComplete,
+  recordReportGenerated,
+} from "@/lib/monitor-timeline";
 import { filterSignalsForMonitor } from "@/lib/monitor-match";
 import {
   BrightDataCollectionError,
@@ -9,6 +14,7 @@ import {
 import { enrichQueryWithWorkspace, type WorkspaceContext } from "@/lib/gtm/workspace-context";
 import { planGtmCollection } from "@/lib/bright-data/router";
 import { createExecutiveReport } from "@/services/intelligence-report";
+import { runChangeDetection } from "@/services/change-detection";
 import { bundleToLegacyEvidence, collectFromPlan } from "@/services/gtm-research";
 import { generateEnterpriseAnalysis } from "@/services/openai";
 import type { Severity } from "@/types/intelligence";
@@ -29,6 +35,7 @@ export type MonitorCheckResult = {
   signals: ReturnType<typeof filterSignalsForMonitor>;
   analysis: Awaited<ReturnType<typeof generateEnterpriseAnalysis>>;
   report: ReturnType<typeof createExecutiveReport>;
+  detectedChanges: ReturnType<typeof runChangeDetection>["changes"];
 };
 
 export async function runMonitorCheck(
@@ -51,20 +58,34 @@ export async function runMonitorCheck(
   const bundle = await collectFromPlan(plan, { multiSource: true });
   const webEvidence = bundleToLegacyEvidence(bundle);
 
+  const changeResult = runChangeDetection({
+    monitorId: monitor.id,
+    evidence: webEvidence.evidence,
+    targetUrl: monitor.target_url ?? plan.targetUrl,
+    userId: options?.userId,
+  });
+
   const analysis = await generateEnterpriseAnalysis(
     enrichedRequirement,
     webEvidence.evidence,
     options?.workspace,
   );
 
-  let savedSignals = analysis.signals;
+  const mergedSignals = [
+    ...changeResult.changeSignals,
+    ...analysis.signals.filter(
+      (signal) => !changeResult.changeSignals.some((change) => change.title.includes(signal.title.slice(0, 20))),
+    ),
+  ];
+
+  let savedSignals = mergedSignals;
   if (options?.persist && options.supabase && options.userId) {
     try {
       const runId = await saveIntelligenceRun(options.supabase, options.userId, {
         query: monitor.requirement,
         provider: webEvidence.provider,
         evidencePreview: analysis.summary,
-        analysis,
+        analysis: { ...analysis, signals: mergedSignals },
       });
       savedSignals = await getSignalsForRun(options.supabase, options.userId, runId);
     } catch (error) {
@@ -79,7 +100,7 @@ export async function runMonitorCheck(
       minimumSeverity: monitor.minimum_severity,
       keywords: monitor.keywords,
     },
-    savedSignals.length ? savedSignals : analysis.signals,
+    savedSignals.length ? savedSignals : mergedSignals,
   );
 
   if (options?.persist && options.supabase && options.userId) {
@@ -91,12 +112,50 @@ export async function runMonitorCheck(
     }
   }
 
+  const collectionMeta = {
+    collectedAt: changeResult.snapshot.collectedAt,
+    brightDataMode: changeResult.snapshot.brightDataMode,
+  };
+
   const report = createExecutiveReport({
     requirement: monitor.requirement,
-    analysis,
+    analysis: { ...analysis, signals: mergedSignals },
     matchedSignals: matched,
     evidence: webEvidence.evidence,
     provider: webEvidence.provider,
+    detectedChanges: changeResult.changes,
+    collectionMeta,
+  });
+
+  changeResult.changes.forEach((change) => {
+    recordChangeDetected({
+      monitorId: monitor.id,
+      monitorRequirement: monitor.requirement,
+      field: change.field,
+      oldValue: change.oldValue,
+      newValue: change.newValue,
+      sourceUrl: change.sourceUrl,
+      severity: change.severity,
+      changeId: change.id,
+      userId: options?.userId,
+    });
+  });
+
+  recordCheckComplete({
+    monitorId: monitor.id,
+    monitorRequirement: monitor.requirement,
+    matchedCount: matched.length,
+    provider: webEvidence.provider,
+    userId: options?.userId,
+  });
+
+  recordReportGenerated({
+    monitorId: monitor.id,
+    monitorRequirement: monitor.requirement,
+    reportId: report.id,
+    verdict: report.verdict,
+    riskScore: report.riskScore,
+    userId: options?.userId,
   });
 
   if (options?.persist && options.supabase && options.userId) {
@@ -111,8 +170,9 @@ export async function runMonitorCheck(
     provider: webEvidence.provider,
     matchedCount: matched.length,
     signals: matched,
-    analysis,
+    analysis: { ...analysis, signals: mergedSignals },
     report,
+    detectedChanges: changeResult.changes,
   };
 }
 

@@ -9,6 +9,11 @@ export type IntelligenceSignal = {
   severity: Severity;
   confidence: number;
   timestamp: string;
+  /** Present when signal originated from snapshot diff */
+  changeId?: string;
+  oldValue?: string;
+  newValue?: string;
+  sourceUrl?: string;
 };
 
 export type IntelligenceAnalysis = {
@@ -20,6 +25,8 @@ export type IntelligenceAnalysis = {
   signals: IntelligenceSignal[];
 };
 
+export type BrightDataCollectionMode = "serp" | "unlocker" | "scraper" | "browser" | "mcp";
+
 export type EvidenceSource = {
   id: string;
   title: string;
@@ -28,14 +35,87 @@ export type EvidenceSource = {
   freshness: string;
   reliability: number;
   claimSupported: string;
+  collectedAt?: string;
+  brightDataMode?: BrightDataCollectionMode;
+  excerpt?: string;
 };
+
+export type ClaimSourceRecord = {
+  sourceId: string;
+  url?: string;
+  excerpt: string;
+  collectedAt: string;
+  brightDataMode?: BrightDataCollectionMode;
+  verificationStatus: ClaimVerificationStatus;
+};
+
+export type ClaimVerificationStatus = "evidence-backed" | "partial" | "unsupported";
+
+/** @deprecated Use ClaimVerificationStatus — kept for legacy report JSON */
+export type LegacyClaimStatus = "verified" | "partial" | "unsupported";
 
 export type VerifiedClaim = {
   id: string;
   claim: string;
-  status: "verified" | "partial" | "unsupported";
+  status: ClaimVerificationStatus;
   confidence: number;
   sourceIds: string[];
+  sourceRecords: ClaimSourceRecord[];
+};
+
+export type PageSnapshot = {
+  id: string;
+  monitorId?: string;
+  url: string;
+  collectedAt: string;
+  contentHash: string;
+  fields: Record<string, string>;
+  rawExcerpt?: string;
+  brightDataMode?: BrightDataCollectionMode;
+};
+
+export type DetectedChange = {
+  id: string;
+  monitorId?: string;
+  field: string;
+  oldValue: string;
+  newValue: string;
+  sourceUrl: string;
+  detectedAt: string;
+  impact: string;
+  severity: Severity;
+  category: IntelligenceSignal["category"];
+};
+
+export type MonitorTimelineEventType =
+  | "change_detected"
+  | "check_complete"
+  | "report_generated"
+  | "workflow_triggered"
+  | "signal_matched";
+
+export type MonitorTimelineEvent = {
+  id: string;
+  type: MonitorTimelineEventType;
+  timestamp: string;
+  monitorId?: string;
+  monitorRequirement?: string;
+  summary: string;
+  severity?: Severity;
+  affectedAccounts?: string[];
+  changeId?: string;
+  reportId?: string;
+  metadata?: Record<string, string>;
+};
+
+export type BusinessMetrics = {
+  monitoredCompetitors: number;
+  pagesTracked: number;
+  changesThisWeek: number;
+  analystHoursSaved: number;
+  strategicAccountsAffected: number;
+  activeMonitors: number;
+  reportsGenerated: number;
 };
 
 export type ExecutiveIntelligenceReport = {
@@ -55,6 +135,7 @@ export type ExecutiveIntelligenceReport = {
   observedFacts: string[];
   forecasts: string[];
   hallucinationRisk: "low" | "medium" | "high";
+  detectedChanges?: DetectedChange[];
 };
 
 export type ChatProvider =
@@ -106,3 +187,17 @@ export type MonitorIntent = {
   confidence: number;
   provider: "aiml" | "featherless" | "openai" | "heuristic";
 };
+
+/** Normalize legacy claim status values from stored reports */
+export function normalizeClaimStatus(status: string): ClaimVerificationStatus {
+  if (status === "verified" || status === "evidence-backed") return "evidence-backed";
+  if (status === "partial") return "partial";
+  return "unsupported";
+}
+
+export function claimStatusLabel(status: ClaimVerificationStatus | string): string {
+  const normalized = normalizeClaimStatus(status);
+  if (normalized === "evidence-backed") return "Evidence-backed";
+  if (normalized === "partial") return "Partial";
+  return "Unsupported";
+}

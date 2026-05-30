@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { WorkspacePage, WorkspacePageHeader, WorkspaceSection } from "@/components/workspace/workspace-page";
 import type { ExecutiveIntelligenceReport } from "@/types/intelligence";
+import { claimStatusLabel, normalizeClaimStatus } from "@/types/intelligence";
 
 const REPORTS_STORAGE_KEY = "sentra-intelligence-reports";
 
@@ -94,7 +95,7 @@ export function ReportsCenter() {
     <WorkspacePage>
       <WorkspacePageHeader
         badge="Reports center"
-        title="Verified intelligence reports"
+        title="Evidence-backed intelligence reports"
         description="Executive briefs generated from monitor checks and Bright Data evidence. Search by verdict, monitor requirement, or risk score."
       />
 
@@ -147,7 +148,7 @@ export function ReportsCenter() {
             ))
           ) : (
             <p className="rounded-2xl border border-dashed border-white/10 p-4 text-sm leading-6 text-white/45">
-              No reports yet. Run a monitor check from Alerts to generate the first verified report.
+              No reports yet. Run a monitor check from Alerts to generate the first evidence-backed report.
             </p>
           )}
         </div>
@@ -201,17 +202,34 @@ export function ReportsCenter() {
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-white/35">Claim verification</p>
                   <div className="mt-3 grid gap-2">
-                    {selected.verifiedClaims.map((claim) => (
+                    {selected.verifiedClaims.map((claim) => {
+                      const status = normalizeClaimStatus(claim.status);
+                      return (
                       <div key={claim.id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-3">
                         <div className="flex items-center justify-between gap-2">
-                          <Badge variant={claim.status === "verified" ? "success" : claim.status === "partial" ? "default" : "risk"}>
-                            {claim.status}
+                          <Badge variant={status === "evidence-backed" ? "success" : status === "partial" ? "default" : "risk"}>
+                            {claimStatusLabel(status)}
                           </Badge>
                           <span className="text-xs text-cyan-100/58">{claim.confidence}%</span>
                         </div>
                         <p className="mt-2 text-sm leading-6 text-white/62">{claim.claim}</p>
+                        {claim.sourceRecords?.map((record) => (
+                          <div key={`${claim.id}-${record.sourceId}`} className="mt-3 rounded-xl border border-white/10 bg-black/10 p-3">
+                            {record.url && (
+                              <a href={record.url} target="_blank" rel="noreferrer" className="block truncate text-xs text-cyan-100">
+                                {record.url}
+                              </a>
+                            )}
+                            <p className="mt-2 text-xs leading-5 text-white/48">&ldquo;{record.excerpt.slice(0, 180)}{record.excerpt.length > 180 ? "…" : ""}&rdquo;</p>
+                            <p className="mt-2 text-xs text-white/35">
+                              Collected {new Date(record.collectedAt).toLocaleString()}
+                              {record.brightDataMode ? ` · ${record.brightDataMode}` : ""}
+                            </p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 </div>
 
@@ -255,7 +273,7 @@ export function ReportsCenter() {
             <div>
               <ShieldCheck className="mx-auto h-10 w-10 text-sentra-cyan" />
               <h2 className="mt-4 text-xl font-semibold text-white">No report selected</h2>
-              <p className="mt-2 text-sm text-white/45">Generate a monitor report to review verified evidence here.</p>
+              <p className="mt-2 text-sm text-white/45">Generate a monitor report to review evidence-backed sources here.</p>
             </div>
           </div>
         )}

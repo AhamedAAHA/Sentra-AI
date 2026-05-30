@@ -4,7 +4,9 @@ import Link from "next/link";
 import { ArrowRight, Radar } from "lucide-react";
 import { DashboardBriefing } from "@/components/dashboard/dashboard-briefing";
 import { LiveSignalsPanel } from "@/components/dashboard/live-signals-panel";
+import { BusinessMetricsPanel } from "@/components/dashboard/business-metrics-panel";
 import { MetricCard } from "@/components/dashboard/metric-card";
+import { MonitorTimeline } from "@/components/dashboard/monitor-timeline";
 import { RiskHeatmap } from "@/components/dashboard/risk-heatmap";
 import { WorkspacePage, WorkspacePageHeader, WorkspaceSection } from "@/components/workspace/workspace-page";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +73,20 @@ export default function DashboardPage() {
         description="Refresh your briefing to collect live web evidence with Bright Data, then create monitors and run the GTM research agent from the Monitors workspace."
         aside={<DashboardBriefing />}
       />
+
+      <WorkspaceSection
+        title="Business impact"
+        description="Operational metrics from monitor checks, snapshot diffs, and generated reports."
+      >
+        <BusinessMetricsPanel />
+      </WorkspaceSection>
+
+      <WorkspaceSection
+        title="Operational timeline"
+        description="Detected changes, severity, affected accounts, reports, and workflows triggered across monitors."
+      >
+        <MonitorTimeline limit={8} />
+      </WorkspaceSection>
 
       <WorkspaceSection
         title="Signal snapshot"

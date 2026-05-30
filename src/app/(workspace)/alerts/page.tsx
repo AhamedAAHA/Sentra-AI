@@ -61,7 +61,7 @@ function AlertsPageContent() {
     router.replace(filter === "All" ? "/alerts" : `/alerts?filter=${filter}`, { scroll: false });
   }
 
-  function useSignalAsPrompt(signal: IntelligenceSignal) {
+  function loadSignalAsPrompt(signal: IntelligenceSignal) {
     const example = signalExamplePrompts[signal.id];
     if (!example) return;
 
@@ -129,7 +129,7 @@ function AlertsPageContent() {
             <button
               key={signal.id}
               type="button"
-              onClick={() => useSignalAsPrompt(signal)}
+              onClick={() => loadSignalAsPrompt(signal)}
               className="sentra-focus text-left"
             >
               <Card className="h-full p-5 transition hover:border-cyan-200/25 hover:bg-white/[0.06]" glow>

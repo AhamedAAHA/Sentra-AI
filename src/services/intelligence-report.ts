@@ -1,4 +1,8 @@
 import type {
+  BrightDataCollectionMode,
+  ClaimSourceRecord,
+  ClaimVerificationStatus,
+  DetectedChange,
   EvidenceSource,
   ExecutiveIntelligenceReport,
   IntelligenceAnalysis,
@@ -29,15 +33,61 @@ function evidenceUrlFromRaw(raw: string, index: number) {
   return urls[index];
 }
 
+function inferBrightDataMode(evidence: string, index: number): BrightDataCollectionMode | undefined {
+  const sections = evidence.split(/###\s+/);
+  const section = sections[index + 1] ?? sections[sections.length - 1] ?? "";
+  const modeMatch = section.match(/\((serp|unlocker|scraper|browser|mcp)\)/i);
+  return modeMatch ? (modeMatch[1].toLowerCase() as BrightDataCollectionMode) : undefined;
+}
+
+function excerptForSignal(signal: IntelligenceSignal, evidence: string): string {
+  const url = signal.sourceUrl ?? evidenceUrlFromRaw(evidence, 0);
+  if (url) {
+    const afterUrl = evidence.split(url)[1]?.slice(0, 400);
+    if (afterUrl?.trim()) return afterUrl.trim().slice(0, 280);
+  }
+
+  const titleIndex = evidence.toLowerCase().indexOf(signal.title.toLowerCase().slice(0, 24));
+  if (titleIndex >= 0) {
+    return evidence.slice(titleIndex, titleIndex + 280).trim();
+  }
+
+  return evidence.slice(0, 280).trim();
+}
+
+function claimStatusFromEvidence(
+  signal: IntelligenceSignal,
+  excerpt: string,
+  url?: string,
+): ClaimVerificationStatus {
+  const hasUrl = Boolean(url);
+  const hasExcerpt = excerpt.length >= 40;
+  const hasChangeValues =
+    Boolean(signal.oldValue && signal.newValue) &&
+    (excerpt.includes(signal.oldValue!.replace("$", "")) ||
+      excerpt.includes(signal.newValue!.replace("$", "")));
+
+  if (hasUrl && hasExcerpt && (hasChangeValues || signal.confidence >= 0.85)) {
+    return "evidence-backed";
+  }
+  if (hasUrl || hasExcerpt || signal.confidence >= 0.68) {
+    return "partial";
+  }
+  return "unsupported";
+}
+
 function buildEvidenceSources(
   signals: IntelligenceSignal[],
   evidence: string,
   provider: ExecutiveIntelligenceReport["provider"],
+  collectionMeta?: { collectedAt?: string; brightDataMode?: BrightDataCollectionMode },
 ): EvidenceSource[] {
   const sourceMap = new Map<string, EvidenceSource>();
+  const collectedAt = collectionMeta?.collectedAt ?? new Date().toISOString();
 
   signals.forEach((signal, index) => {
-    const url = evidenceUrlFromRaw(evidence, index);
+    const url = signal.sourceUrl ?? evidenceUrlFromRaw(evidence, index);
+    const brightDataMode = collectionMeta?.brightDataMode ?? inferBrightDataMode(evidence, index);
     const publisher = hostFromSource(signal.source) ?? (provider === "bright-data" ? "Collected web evidence" : signal.source);
     const id = `source-${index + 1}`;
     const key = `${publisher}-${url ?? signal.source}`;
@@ -49,8 +99,11 @@ function buildEvidenceSources(
       url,
       publisher,
       freshness: signal.timestamp || "latest collected run",
-      reliability: provider === "bright-data" ? Math.min(96, Math.round(signal.confidence * 100 + 5)) : 66,
+      reliability: provider === "bright-data" ? Math.min(96, Math.round(signal.confidence * 100 + 5)) : 72,
       claimSupported: signal.title,
+      collectedAt,
+      brightDataMode,
+      excerpt: excerptForSignal(signal, evidence),
     });
   });
 
@@ -62,32 +115,86 @@ function buildEvidenceSources(
       freshness: "current run",
       reliability: provider === "bright-data" ? 82 : 58,
       claimSupported: "Monitor requirement requires further corroboration.",
+      collectedAt,
+      brightDataMode: collectionMeta?.brightDataMode,
+      excerpt: evidence.slice(0, 280),
     });
   }
 
   return Array.from(sourceMap.values()).slice(0, 6);
 }
 
-function buildVerifiedClaims(signals: IntelligenceSignal[], sources: EvidenceSource[]): VerifiedClaim[] {
+function findSourceForSignal(
+  signal: IntelligenceSignal,
+  sources: EvidenceSource[],
+  evidence: string,
+  index: number,
+): EvidenceSource {
+  const signalUrl = signal.sourceUrl ?? evidenceUrlFromRaw(evidence, index);
+  if (signalUrl) {
+    const byUrl = sources.find((source) => source.url === signalUrl);
+    if (byUrl) return byUrl;
+  }
+  return sources[index % sources.length] ?? sources[0];
+}
+
+function buildEvidenceBackedClaims(
+  signals: IntelligenceSignal[],
+  sources: EvidenceSource[],
+  evidence: string,
+  collectionMeta?: { collectedAt?: string; brightDataMode?: BrightDataCollectionMode },
+): VerifiedClaim[] {
+  const collectedAt = collectionMeta?.collectedAt ?? new Date().toISOString();
+
   if (!signals.length) {
+    const fallbackSource = sources[0];
     return [
       {
         id: "claim-1",
         claim: "No matching signal crossed the configured monitor threshold.",
         status: "partial",
         confidence: 52,
-        sourceIds: sources.slice(0, 1).map((source) => source.id),
+        sourceIds: fallbackSource ? [fallbackSource.id] : [],
+        sourceRecords: fallbackSource
+          ? [
+              {
+                sourceId: fallbackSource.id,
+                url: fallbackSource.url,
+                excerpt: fallbackSource.excerpt ?? evidence.slice(0, 200),
+                collectedAt,
+                brightDataMode: fallbackSource.brightDataMode,
+                verificationStatus: "partial",
+              },
+            ]
+          : [],
       },
     ];
   }
 
-  return signals.slice(0, 5).map((signal, index) => ({
-    id: `claim-${index + 1}`,
-    claim: `${signal.title}: ${signal.summary}`,
-    status: signal.confidence >= 0.86 ? "verified" : signal.confidence >= 0.68 ? "partial" : "unsupported",
-    confidence: Math.round(signal.confidence * 100),
-    sourceIds: [sources[index % sources.length]?.id ?? sources[0]?.id].filter(Boolean),
-  }));
+  return signals.slice(0, 5).map((signal, index) => {
+    const source = findSourceForSignal(signal, sources, evidence, index);
+    const excerpt = excerptForSignal(signal, evidence);
+    const status = claimStatusFromEvidence(signal, excerpt, source.url);
+    const sourceRecord: ClaimSourceRecord = {
+      sourceId: source.id,
+      url: source.url ?? signal.sourceUrl,
+      excerpt,
+      collectedAt,
+      brightDataMode: source.brightDataMode ?? collectionMeta?.brightDataMode,
+      verificationStatus: status,
+    };
+
+    return {
+      id: `claim-${index + 1}`,
+      claim: signal.oldValue && signal.newValue
+        ? `${signal.title}: ${signal.oldValue} → ${signal.newValue}`
+        : `${signal.title}: ${signal.summary}`,
+      status,
+      confidence: Math.round(signal.confidence * 100),
+      sourceIds: [source.id],
+      sourceRecords: [sourceRecord],
+    };
+  });
 }
 
 export function createExecutiveReport({
@@ -96,16 +203,20 @@ export function createExecutiveReport({
   matchedSignals,
   evidence,
   provider,
+  detectedChanges,
+  collectionMeta,
 }: {
   requirement: string;
   analysis: IntelligenceAnalysis;
   matchedSignals: IntelligenceSignal[];
   evidence: string;
   provider: ExecutiveIntelligenceReport["provider"];
+  detectedChanges?: DetectedChange[];
+  collectionMeta?: { collectedAt?: string; brightDataMode?: BrightDataCollectionMode };
 }): ExecutiveIntelligenceReport {
   const signals = matchedSignals.length ? matchedSignals : analysis.signals;
-  const sources = buildEvidenceSources(signals, evidence, provider);
-  const claims = buildVerifiedClaims(matchedSignals, sources);
+  const sources = buildEvidenceSources(signals, evidence, provider, collectionMeta);
+  const claims = buildEvidenceBackedClaims(signals, sources, evidence, collectionMeta);
   const topSignal = matchedSignals[0] ?? analysis.signals[0];
   const riskScore = Math.max(
     Math.round((analysis.confidenceScore || 0.65) * 100),
@@ -119,6 +230,10 @@ export function createExecutiveReport({
   const hallucinationRisk =
     provider === "demo" || unsupportedCount ? "high" : partialCount > claims.length / 2 ? "medium" : "low";
 
+  const changeSummary =
+    detectedChanges?.length &&
+    ` Snapshot diff detected ${detectedChanges.length} change${detectedChanges.length === 1 ? "" : "s"} since the last collection.`;
+
   return {
     id: crypto.randomUUID(),
     monitorRequirement: requirement,
@@ -130,11 +245,13 @@ export function createExecutiveReport({
     riskScore,
     confidence,
     situation: matchedSignals.length
-      ? `${analysis.summary} The strongest matching signal is "${topSignal.title}".`
+      ? `${analysis.summary}${changeSummary || ""} The strongest matching signal is "${topSignal.title}".`
       : `${analysis.summary} No collected signal fully matched the configured threshold yet.`,
-    impact: matchedSignals.length
-      ? `Potential impact is concentrated around ${topSignal.category} with ${topSignal.severity} severity.`
-      : "Impact remains watchlist-level until stronger corroborated evidence appears.",
+    impact: detectedChanges?.[0]
+      ? detectedChanges[0].impact
+      : matchedSignals.length
+        ? `Potential impact is concentrated around ${topSignal.category} with ${topSignal.severity} severity.`
+        : "Impact remains watchlist-level until stronger corroborated evidence appears.",
     actionPlan: (analysis.recommendations.length ? analysis.recommendations : [
       "Validate the collected evidence with a human owner.",
       "Keep the monitor active until the signal stabilizes.",
@@ -146,8 +263,13 @@ export function createExecutiveReport({
     ].slice(0, 5),
     evidenceSources: sources,
     verifiedClaims: claims,
-    observedFacts: matchedSignals.slice(0, 4).map((signal) => signal.summary),
+    observedFacts: matchedSignals.slice(0, 4).map((signal) =>
+      signal.oldValue && signal.newValue
+        ? `${signal.title} (${signal.oldValue} → ${signal.newValue})`
+        : signal.summary,
+    ),
     forecasts: analysis.opportunities.slice(0, 3),
     hallucinationRisk,
+    detectedChanges,
   };
 }
