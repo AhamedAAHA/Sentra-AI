@@ -46,6 +46,31 @@ export function appendTimelineEvents(events: Array<Omit<MonitorTimelineEvent, "i
   return events.map((event) => appendTimelineEvent(event, userId));
 }
 
+export function recordSignalMatched({
+  monitorId,
+  monitorRequirement,
+  signalTitle,
+  severity,
+  userId,
+}: {
+  monitorId: string;
+  monitorRequirement: string;
+  signalTitle: string;
+  severity?: Severity;
+  userId?: string;
+}) {
+  return appendTimelineEvent(
+    {
+      type: "signal_matched",
+      monitorId,
+      monitorRequirement,
+      summary: signalTitle,
+      severity,
+    },
+    userId,
+  );
+}
+
 export function recordCheckComplete({
   monitorId,
   monitorRequirement,

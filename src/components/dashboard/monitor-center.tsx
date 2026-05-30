@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { signalStream } from "@/data/mock-intelligence";
 import { AutomationWebhookPanel } from "@/components/gtm/crm-export-button";
 import { getWorkspaceContext } from "@/lib/gtm/workspace-context";
 import { useWorkspaceSession } from "@/lib/hooks/use-workspace-session";
@@ -33,8 +32,21 @@ import { looksLikeTechnicalPayload } from "@/lib/evidence/format-evidence";
 import { ChangeDetectionPanel } from "@/components/dashboard/change-detection-panel";
 import { MonitorTimeline } from "@/components/dashboard/monitor-timeline";
 import { initializePresetDemoStorage, PRESET_DEMO_MONITOR_REQUIREMENT } from "@/lib/demo/preset-scenario";
-import { appendTimelineEvents, recordWorkflowTriggered } from "@/lib/monitor-timeline";
-import { loadDetectedChanges, saveDetectedChanges } from "@/services/change-detection";
+import { appendTimelineEvents, recordCheckComplete, recordReportGenerated, recordChangeDetected, recordSignalMatched, recordWorkflowTriggered } from "@/lib/monitor-timeline";
+import {
+  appendLiveDetectedChanges,
+  flattenMonitorSignals,
+  loadLiveDetectedChanges,
+  loadMonitorSignalsMap,
+  loadPersistedMonitors,
+  loadReportsByMonitorIdFromStorage,
+  mergeMonitorsWithLocal,
+  purgeDemoMonitorArtifacts,
+  saveMonitorSignals,
+  savePersistedMonitors,
+  saveReportForMonitor,
+} from "@/lib/monitor-workspace-storage";
+import { runChangeDetection } from "@/services/change-detection";
 import type { DetectedChange, ExecutiveIntelligenceReport, IntelligenceSignal, MonitorIntent, Severity } from "@/types/intelligence";
 import { claimStatusLabel, normalizeClaimStatus } from "@/types/intelligence";
 
@@ -81,30 +93,15 @@ const categories: Array<"any" | SignalCategory> = [
 const severities: Severity[] = ["low", "medium", "high", "critical"];
 
 function loadMonitors() {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]") as Monitor[];
-    return parsed.filter((monitor) => monitor.requirement?.trim());
-  } catch {
-    return [];
-  }
+  return loadPersistedMonitors() as Monitor[];
 }
 
 function saveMonitors(monitors: Monitor[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(monitors));
+  savePersistedMonitors(monitors);
 }
 
 function saveLocalReport(report: ExecutiveIntelligenceReport) {
-  if (typeof window === "undefined") return;
-  try {
-    const current = JSON.parse(window.localStorage.getItem(REPORTS_STORAGE_KEY) || "[]") as ExecutiveIntelligenceReport[];
-    const next = [report, ...current.filter((item) => item.id !== report.id)].slice(0, 50);
-    window.localStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify(next));
-  } catch {
-    window.localStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify([report]));
-  }
+  saveReportForMonitor(report);
 }
 
 function buildLocalMonitor(input: {
@@ -139,7 +136,7 @@ export function MonitorCenter() {
   const intentAbortRef = useRef<AbortController | null>(null);
   const checkMonitorNowRef = useRef<((monitorId: string, options?: { automated?: boolean }) => Promise<void>) | null>(null);
   const [monitors, setMonitors] = useState<Monitor[]>([]);
-  const [signals, setSignals] = useState<IntelligenceSignal[]>(signalStream);
+  const [signals, setSignals] = useState<IntelligenceSignal[]>([]);
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const [requirement, setRequirement] = useState("");
   const [category, setCategory] = useState<"any" | SignalCategory>("any");
@@ -156,9 +153,7 @@ export function MonitorCenter() {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [automationWebhookUrl, setAutomationWebhookUrl] = useState("");
   const [webhookSending, setWebhookSending] = useState(false);
-  const [detectedChanges, setDetectedChanges] = useState<DetectedChange[]>(() =>
-    typeof window !== "undefined" ? loadDetectedChanges() : [],
-  );
+  const [detectedChanges, setDetectedChanges] = useState<DetectedChange[]>([]);
   const [demoLoading, setDemoLoading] = useState(false);
   const [creatingMonitor, setCreatingMonitor] = useState(false);
   const [timelineKey, setTimelineKey] = useState(0);
@@ -171,6 +166,21 @@ export function MonitorCenter() {
   useEffect(() => {
     repairLocalStorageQuota();
     syncLocalSessionToCookie();
+    purgeDemoMonitorArtifacts();
+
+    const localMonitors = loadMonitors().filter((monitor) => monitor.requirement?.trim());
+    if (localMonitors.length) {
+      setMonitors(localMonitors);
+      setReportsByMonitor(loadReportsByMonitorIdFromStorage(localMonitors));
+    }
+
+    const signalMap = loadMonitorSignalsMap();
+    const persistedSignals = flattenMonitorSignals(signalMap);
+    if (persistedSignals.length) {
+      setSignals(persistedSignals);
+    }
+
+    setDetectedChanges(loadLiveDetectedChanges());
   }, []);
 
   const promptSuggestions = useMemo(
@@ -197,17 +207,20 @@ export function MonitorCenter() {
           localOnly ? Promise.resolve(null) : fetch("/api/monitors"),
         ]);
         const signalsData = await readResponseJson<{ signals?: IntelligenceSignal[] }>(signalsRes);
-        if (signalsData.signals?.length) setSignals(signalsData.signals);
+        const persistedSignals = flattenMonitorSignals(loadMonitorSignalsMap());
+        if (persistedSignals.length) {
+          setSignals(persistedSignals);
+        } else if (signalsData.signals?.length) {
+          setSignals(signalsData.signals);
+        }
 
         if (localOnly) {
-          setMonitors(loadMonitors());
           return;
         }
 
         if (!monitorsRes) return;
 
         if (monitorsRes.status === 401 || monitorsRes.status === 403) {
-          setMonitors(loadMonitors());
           return;
         }
 
@@ -225,18 +238,23 @@ export function MonitorCenter() {
         }>(monitorsRes);
 
         if (monitorsData.monitors?.length) {
-          const mapped = monitorsData.monitors.map((monitor) => ({
-            id: monitor.id,
-            requirement: monitor.requirement,
-            category: monitor.category as Monitor["category"],
-            minimumSeverity: monitor.minimum_severity,
-            keywords: monitor.keywords,
-            active: monitor.active,
-            createdAt: monitor.last_checked_at ?? new Date().toISOString(),
-            lastCheckedAt: monitor.last_checked_at ?? undefined,
-            alertedSignalIds: [] as string[],
-          }));
+          const local = loadMonitors();
+          const mapped = mergeMonitorsWithLocal(
+            monitorsData.monitors.map((monitor) => ({
+              id: monitor.id,
+              requirement: monitor.requirement,
+              category: monitor.category as Monitor["category"],
+              minimumSeverity: monitor.minimum_severity,
+              keywords: monitor.keywords,
+              active: monitor.active,
+              createdAt: monitor.last_checked_at ?? new Date().toISOString(),
+              lastCheckedAt: monitor.last_checked_at ?? undefined,
+              alertedSignalIds: [] as string[],
+            })),
+            local,
+          ) as Monitor[];
           setMonitors(mapped);
+          setReportsByMonitor(loadReportsByMonitorIdFromStorage(mapped));
           if (monitorsData.localMode) saveMonitors(mapped);
           return;
         }
@@ -696,7 +714,8 @@ export function MonitorCenter() {
       const timeline = data.timeline ?? bundle.timeline;
 
       appendTimelineEvents(timeline);
-      saveDetectedChanges([...changes, ...loadDetectedChanges()]);
+      appendLiveDetectedChanges(changes);
+      setDetectedChanges(loadLiveDetectedChanges());
 
       setMonitors((current) => {
         const withoutDemo = current.filter((item) => item.id !== monitor.id);
@@ -778,6 +797,7 @@ export function MonitorCenter() {
         signalCount?: number;
         analysis?: { summary?: string; signals?: IntelligenceSignal[] };
         report?: ExecutiveIntelligenceReport;
+        evidencePreview?: string;
         detectedChanges?: DetectedChange[];
         error?: string;
       }>(response);
@@ -815,18 +835,9 @@ export function MonitorCenter() {
       });
 
       if (allSignals.length) {
+        saveMonitorSignals(monitorId, allSignals);
         setSignals((current) => {
-          const merged = [...allSignals, ...matched, ...current];
-          const seen = new Set<string>();
-          return merged.filter((signal) => {
-            if (seen.has(signal.id)) return false;
-            seen.add(signal.id);
-            return true;
-          });
-        });
-      } else if (matched.length) {
-        setSignals((current) => {
-          const merged = [...matched, ...current];
+          const merged = [...allSignals, ...current];
           const seen = new Set<string>();
           return merged.filter((signal) => {
             if (seen.has(signal.id)) return false;
@@ -836,30 +847,74 @@ export function MonitorCenter() {
         });
       }
 
-      if (data.detectedChanges?.length) {
-        setDetectedChanges((current) => {
-          const merged = [...data.detectedChanges!, ...current];
-          const seen = new Set<string>();
-          const next = merged.filter((change) => {
-            if (seen.has(change.id)) return false;
-            seen.add(change.id);
-            return true;
-          });
-          saveDetectedChanges(next);
-          return next;
-        });
+      const clientChanges =
+        data.evidencePreview && data.evidencePreview.length > 40
+          ? runChangeDetection({
+              monitorId,
+              evidence: data.evidencePreview,
+              targetUrl: monitor.targetUrl,
+              persistLocally: true,
+            }).changes
+          : [];
+
+      const mergedChanges = [...(data.detectedChanges ?? []), ...clientChanges].filter(
+        (change, index, all) => all.findIndex((item) => item.id === change.id) === index,
+      );
+
+      if (mergedChanges.length) {
+        appendLiveDetectedChanges(mergedChanges);
+        setDetectedChanges(loadLiveDetectedChanges());
         setTimelineKey((current) => current + 1);
       }
+
+      recordCheckComplete({
+        monitorId,
+        monitorRequirement: monitor.requirement,
+        matchedCount: data.matchedCount ?? matched.length,
+        provider: data.provider ?? "demo",
+      });
+
+      matched.forEach((signal) => {
+        recordSignalMatched({
+          monitorId,
+          monitorRequirement: monitor.requirement,
+          signalTitle: signal.title,
+          severity: signal.severity,
+        });
+      });
+
+      mergedChanges.forEach((change) => {
+        recordChangeDetected({
+          monitorId,
+          monitorRequirement: monitor.requirement,
+          field: change.field,
+          oldValue: change.oldValue,
+          newValue: change.newValue,
+          sourceUrl: change.sourceUrl,
+          severity: change.severity,
+          changeId: change.id,
+        });
+      });
 
       if (data.report) {
         setReportsByMonitor((current) => ({ ...current, [monitorId]: data.report! }));
         saveLocalReport(data.report);
+        recordReportGenerated({
+          monitorId,
+          monitorRequirement: monitor.requirement,
+          reportId: data.report.id,
+          verdict: data.report.verdict,
+          riskScore: data.report.riskScore,
+        });
         const displaySignal = matched[0] ?? allSignals[0];
         toast.success("Evidence-backed report ready", {
           description: data.report.verdict,
           action: { label: "Open", onClick: () => openReport(monitor, displaySignal, data.report) },
         });
       }
+
+      setTimelineKey((current) => current + 1);
+
       matched.forEach((signal) => {
         toast.success("Monitor match", {
           description: signal.title,
@@ -1241,8 +1296,12 @@ export function MonitorCenter() {
             </Button>
             {showActivity && (
               <>
-                {detectedChanges.length > 0 && (
+                {detectedChanges.length > 0 ? (
                   <ChangeDetectionPanel changes={detectedChanges.slice(0, 6)} />
+                ) : (
+                  <Card className="p-4 text-sm text-white/45">
+                    No snapshot diffs yet. Run Check now twice on the same monitor to detect price or field changes from live evidence.
+                  </Card>
                 )}
                 <MonitorTimeline key={timelineKey} />
               </>

@@ -103,7 +103,7 @@ export function MonitorTimeline({ monitorId, limit = 12, className }: MonitorTim
       <Card className={cn("p-5 md:p-6", className)} glow>
         <p className="text-sm uppercase tracking-[0.24em] text-white/35">Event timeline</p>
         <p className="mt-4 text-sm leading-6 text-white/45">
-          Run a monitor check or load the competitive pricing demo to populate detected changes, reports, and workflows.
+          Run a monitor check to populate detected changes, signals, reports, and timeline events.
         </p>
       </Card>
     );

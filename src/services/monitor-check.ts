@@ -38,6 +38,7 @@ export type MonitorCheckResult = {
   analysis: Awaited<ReturnType<typeof generateEnterpriseAnalysis>>;
   report: ReturnType<typeof createExecutiveReport>;
   detectedChanges: ReturnType<typeof runChangeDetection>["changes"];
+  evidencePreview: string;
 };
 
 export async function runMonitorCheck(
@@ -180,6 +181,7 @@ export async function runMonitorCheck(
     analysis: { ...analysis, signals: mergedSignals },
     report,
     detectedChanges: changeResult.changes,
+    evidencePreview: webEvidence.evidence.slice(0, 6000),
   };
 }
 

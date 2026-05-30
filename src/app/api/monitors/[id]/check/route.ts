@@ -78,6 +78,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       analysis: result.analysis,
       report: result.report,
       detectedChanges: result.detectedChanges,
+      evidencePreview: result.evidencePreview,
     });
   } catch (error) {
     console.error("Monitor check failed", error);
