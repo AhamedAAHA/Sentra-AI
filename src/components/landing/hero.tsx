@@ -22,72 +22,104 @@ const cards = [
 
 export function Hero() {
   return (
-    <section className="relative overflow-hidden pb-20 pt-32 md:pb-28 md:pt-40">
-      <div className="container grid items-center gap-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-10 xl:gap-16">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          className="order-1 w-full text-left lg:max-w-xl xl:max-w-2xl"
-        >
-          <Badge variant="cyan" className="mb-5">
-            Autonomous intelligence command center
-          </Badge>
-          <h1 className="max-w-[18ch] text-balance font-display text-[clamp(2.5rem,4.2vw,5rem)] font-bold leading-[1.04] tracking-tight text-white">
-            <span className="premium-gradient-text">
-              Monitor competitors, verify evidence, and brief leaders automatically
-            </span>
-          </h1>
-          <p className="type-body-lg mt-6 max-w-[52ch] text-white/65">
-            Sentra AI turns live web signals into verified intelligence reports with risk scoring,
-            source evidence, action plans, and executive briefings for fast-moving teams.
-          </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button asChild size="lg" variant="neon">
-              <LandingAuthLink href={SENTRA_HOME}>
-                Launch workspace <ArrowRight className="h-5 w-5" />
-              </LandingAuthLink>
-            </Button>
-            <Button asChild size="lg" variant="ghost">
-              <LandingAuthLink href="/reports">View reports</LandingAuthLink>
-            </Button>
-          </div>
-          <div className="mt-9 grid gap-3 sm:grid-cols-3">
-            {cards.map((card) => (
-              <Card key={card.label} className="p-4" data-float>
-                <card.icon className="mb-4 h-5 w-5 text-sentra-cyan" />
-                <p className="text-xs uppercase tracking-[0.3em] text-white/35">{card.label}</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{card.value}</p>
-                <p className="text-sm text-white/50">{card.detail}</p>
-              </Card>
-            ))}
-          </div>
-        </motion.div>
+    <section className="relative overflow-hidden pb-16 pt-28 md:pb-24 md:pt-36 lg:pb-20 lg:pt-40">
+      <div className="container flex flex-col gap-12 lg:gap-14 xl:gap-16">
+        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-12 xl:grid-cols-[0.92fr_1.08fr] xl:gap-20">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            className="flex flex-col items-start text-left lg:max-w-[34rem] xl:max-w-[36rem]"
+          >
+            <Badge variant="cyan" className="mb-6">
+              Autonomous intelligence command center
+            </Badge>
+
+            <h1 className="max-w-[16ch] text-balance font-display text-[clamp(2.35rem,3.8vw,4.5rem)] font-bold leading-[1.06] tracking-[-0.02em] text-white xl:max-w-[18ch]">
+              <span className="premium-gradient-text">
+                Monitor competitors, verify evidence, and brief leaders automatically
+              </span>
+            </h1>
+
+            <p className="type-body-lg mt-5 max-w-[48ch] text-pretty text-white/62 lg:mt-6">
+              Sentra AI turns live web signals into verified intelligence reports with risk scoring,
+              source evidence, action plans, and executive briefings for fast-moving teams.
+            </p>
+
+            <div className="mt-7 flex w-full flex-col gap-3 sm:mt-8 sm:w-auto sm:flex-row sm:items-center">
+              <Button asChild size="lg" variant="neon" className="w-full sm:w-auto">
+                <LandingAuthLink href={SENTRA_HOME}>
+                  Launch workspace <ArrowRight className="h-5 w-5" />
+                </LandingAuthLink>
+              </Button>
+              <Button asChild size="lg" variant="ghost" className="w-full sm:w-auto">
+                <LandingAuthLink href="/reports">View reports</LandingAuthLink>
+              </Button>
+            </div>
+          </motion.div>
+
+          <motion.div
+            className="relative mx-auto aspect-[5/6] w-full max-w-[560px] overflow-hidden rounded-[1.75rem] sm:aspect-[4/5] lg:mx-0 lg:max-w-none lg:justify-self-end xl:aspect-square xl:max-h-[580px]"
+            initial={{ opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1, delay: 0.1 }}
+          >
+            <HeroVisual />
+            <Card
+              className="absolute left-3 top-8 w-[min(16rem,78%)] p-4 sm:left-5 sm:top-10 sm:w-60 sm:p-5"
+              data-float
+              glow
+            >
+              <p className="text-[0.65rem] uppercase tracking-[0.28em] text-cyan-100/60 sm:text-xs">
+                Monitor workflow
+              </p>
+              <p className="mt-2 text-xl font-semibold text-white sm:mt-3 sm:text-2xl">Live watch</p>
+              <p className="mt-1 text-xs leading-5 text-white/50 sm:text-sm">
+                competitors, pricing, hiring, sentiment
+              </p>
+            </Card>
+            <Card
+              className="absolute right-3 top-14 w-[min(11.5rem,62%)] p-4 sm:right-5 sm:top-16 sm:w-52 sm:p-5"
+              data-float
+            >
+              <p className="text-xs text-white/60 sm:text-sm">Evidence</p>
+              <p className="mt-1.5 text-lg font-semibold leading-snug text-white sm:mt-2 sm:text-xl">
+                SERP + Unlocker
+              </p>
+              <p className="mt-1 text-[0.65rem] leading-4 text-white/45 sm:text-xs">
+                Live vs Sample labeled in the product
+              </p>
+            </Card>
+            <Card
+              className="absolute bottom-5 left-3 right-3 p-4 sm:bottom-8 sm:left-auto sm:right-5 sm:w-[min(22rem,88%)] sm:p-5"
+              data-float
+              glow
+            >
+              <p className="text-[0.65rem] uppercase tracking-[0.28em] text-violet-100/60 sm:text-xs">
+                Executive report
+              </p>
+              <p className="mt-2 text-xs leading-6 text-white/70 sm:mt-3 sm:text-sm">
+                Pricing pressure verified. Recommended action: brief strategic accounts and prepare
+                retention offers.
+              </p>
+            </Card>
+          </motion.div>
+        </div>
 
         <motion.div
-          className="relative order-2 mx-auto min-h-[420px] w-full max-w-[680px] overflow-hidden rounded-[2rem] sm:min-h-[480px] lg:mx-0 lg:ml-auto lg:min-h-[520px]"
-          initial={{ opacity: 0, scale: 0.92 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, delay: 0.1 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+          className="grid gap-3 sm:grid-cols-3 sm:gap-4"
         >
-          <HeroVisual />
-          <Card className="absolute left-2 top-10 w-64 p-5 md:left-6 lg:left-4 xl:left-0" data-float glow>
-            <p className="text-xs uppercase tracking-[0.3em] text-cyan-100/60">Monitor workflow</p>
-            <p className="mt-3 text-2xl font-semibold text-white">Live watch</p>
-            <p className="text-sm text-white/50">competitors, pricing, hiring, sentiment</p>
-          </Card>
-          <Card className="absolute bottom-6 right-2 w-[min(22rem,92vw)] p-5 md:bottom-10 md:right-6 lg:bottom-8 lg:right-4 xl:right-0" data-float glow>
-            <p className="text-xs uppercase tracking-[0.3em] text-violet-100/60">Executive report</p>
-            <p className="mt-3 text-sm leading-6 text-white/70">
-              Pricing pressure verified. Recommended action: brief strategic accounts and prepare
-              retention offers.
-            </p>
-          </Card>
-          <Card className="absolute right-3 top-16 w-52 p-5 md:right-10 lg:right-6 xl:right-7" data-float>
-            <p className="text-sm text-white/60">Evidence</p>
-            <p className="mt-2 text-xl font-semibold leading-snug text-white">SERP + Unlocker</p>
-            <p className="mt-2 text-xs text-white/45">Live vs Sample labeled in the product</p>
-          </Card>
+          {cards.map((card) => (
+            <Card key={card.label} className="flex h-full flex-col p-4 sm:p-5" data-float>
+              <card.icon className="mb-3 h-5 w-5 text-sentra-cyan sm:mb-4" />
+              <p className="text-[0.65rem] uppercase tracking-[0.28em] text-white/35 sm:text-xs">{card.label}</p>
+              <p className="mt-2 text-xl font-semibold text-white sm:text-2xl">{card.value}</p>
+              <p className="mt-1 text-sm leading-6 text-white/50">{card.detail}</p>
+            </Card>
+          ))}
         </motion.div>
       </div>
     </section>
