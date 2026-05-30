@@ -149,7 +149,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <UserMenu />
           </div>
         </header>
-        <div className="px-4 py-8 md:px-8">{children}</div>
+        <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">{children}</div>
       </section>
       <nav className="fixed inset-x-3 bottom-3 z-40 rounded-3xl border border-white/10 bg-sentra-ink/95 p-2 shadow-2xl shadow-black/40 lg:hidden">
         <div className="flex gap-1 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { AlertTriangle, BellRing, Bot, CheckCircle2, FileCheck2, Pause, Play, Radar, Send, ShieldCheck, Sparkles, TimerReset, Trash2, X } from "lucide-react";
+import { AlertTriangle, BellRing, Bot, CheckCircle2, FileCheck2, Pause, Play, Radar, Send, ShieldCheck, Sparkles, TimerReset, Trash2, Workflow, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -14,9 +14,11 @@ import { gtmMonitorTemplates } from "@/data/gtm-monitor-templates";
 import { signalStream } from "@/data/mock-intelligence";
 import { AccountContextPanel } from "@/components/gtm/account-context-panel";
 import { BattlecardAnalyzer } from "@/components/gtm/battlecard-analyzer";
-import { CrmExportButton, TriggerWareAutomationButton } from "@/components/gtm/crm-export-button";
+import { AutomationWebhookPanel } from "@/components/gtm/crm-export-button";
 import { GtmResearchAgentPanel } from "@/components/gtm/gtm-research-agent-panel";
 import { getWorkspaceContext } from "@/lib/gtm/workspace-context";
+import { getAlertWebhookUrl, getAutomationWebhookUrl, saveAlertWebhookUrl, saveAutomationWebhookUrl } from "@/lib/webhooks";
+import { WorkspaceSection } from "@/components/workspace/workspace-page";
 import { isBrowserSupabaseConfigured } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { ExecutiveIntelligenceReport, IntelligenceSignal, MonitorIntent, Severity } from "@/types/intelligence";
@@ -42,7 +44,6 @@ type SelectedReport = {
 };
 
 const STORAGE_KEY = "sentra-monitors";
-const WEBHOOK_STORAGE_KEY = "sentra-alert-webhook";
 const REPORTS_STORAGE_KEY = "sentra-intelligence-reports";
 const severityRank: Record<Severity, number> = {
   low: 1,
@@ -131,9 +132,8 @@ export function MonitorCenter() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   const [demoAutopilot, setDemoAutopilot] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState(() =>
-    typeof window !== "undefined" ? window.localStorage.getItem(WEBHOOK_STORAGE_KEY) ?? "" : "",
-  );
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [automationWebhookUrl, setAutomationWebhookUrl] = useState("");
   const [webhookSending, setWebhookSending] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">(() =>
     typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported",
@@ -230,8 +230,20 @@ export function MonitorCenter() {
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(WEBHOOK_STORAGE_KEY, webhookUrl.trim());
+    const timeout = window.setTimeout(() => {
+      setWebhookUrl(getAlertWebhookUrl());
+      setAutomationWebhookUrl(getAutomationWebhookUrl());
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    saveAlertWebhookUrl(webhookUrl);
   }, [webhookUrl]);
+
+  useEffect(() => {
+    saveAutomationWebhookUrl(automationWebhookUrl);
+  }, [automationWebhookUrl]);
 
   useEffect(() => {
     const guidePrompt = searchParams.get("guidePrompt");
@@ -455,15 +467,15 @@ export function MonitorCenter() {
   }
 
   async function sendAutomationTrigger(report: ExecutiveIntelligenceReport, monitorId?: string) {
-    const triggerUrl = window.localStorage.getItem("sentra-triggerware-webhook")?.trim();
-    if (!triggerUrl) return;
+    const automationUrl = getAutomationWebhookUrl();
+    if (!automationUrl) return;
 
     try {
-      await fetch("/api/automation/trigger", {
+      await fetch("/api/automation/webhook", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          webhookUrl: triggerUrl,
+          webhookUrl: automationUrl,
           event: "monitor_alert",
           workspace: getWorkspaceContext(),
           report,
@@ -651,20 +663,28 @@ export function MonitorCenter() {
 
   return (
     <>
-      <section className="mb-8 grid gap-5 xl:grid-cols-2">
-        <AccountContextPanel compact />
-        <BattlecardAnalyzer compact />
-      </section>
-
-      <section className="mb-8">
+      <WorkspaceSection
+        id="gtm-workspace"
+        title="GTM workspace"
+        description="Account context, battlecard analysis, and the Bright Data MCP research agent."
+      >
+        <div className="grid gap-5 xl:grid-cols-2">
+          <AccountContextPanel compact />
+          <BattlecardAnalyzer compact />
+        </div>
         <GtmResearchAgentPanel
           compact
           initialQuery={requirement}
           onApplyRequirement={(value) => setRequirement(value)}
         />
-      </section>
+      </WorkspaceSection>
 
-    <section id="create-signal-monitor" className="mb-8 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <WorkspaceSection
+        id="create-signal-monitor"
+        title="Signal monitors"
+        description="Define requirements, run live checks, and deliver executive reports to your team."
+      >
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
       <Card className="p-5 md:p-6" glow>
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0">
@@ -686,31 +706,49 @@ export function MonitorCenter() {
           </Button>
         </div>
 
-        <div className="mt-5 grid gap-3 rounded-3xl border border-white/10 bg-white/[0.035] p-4 lg:grid-cols-[1fr_auto_auto] lg:items-center">
+        <div className="mt-5 grid gap-4 rounded-3xl border border-white/10 bg-white/[0.035] p-4">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm font-medium text-white">
+                <Send className="h-4 w-4 text-sentra-cyan" />
+                Alert webhook
+              </div>
+              <Input
+                value={webhookUrl}
+                onChange={(event) => setWebhookUrl(event.target.value)}
+                placeholder="Slack, Discord, or alert webhook URL"
+                className="mt-3 h-10"
+                aria-label="Alert webhook URL"
+              />
+            </div>
+            <Button
+              variant={demoAutopilot ? "neon" : "ghost"}
+              onClick={() => setDemoAutopilot((current) => !current)}
+              disabled={!activeMonitorCount}
+            >
+              <TimerReset className="h-4 w-4" />
+              {demoAutopilot ? "Autopilot on" : "Autopilot"}
+            </Button>
+            <Badge variant={webhookSending ? "cyan" : webhookUrl.trim() ? "success" : "default"}>
+              {webhookSending ? "Sending" : webhookUrl.trim() ? "Alert armed" : "Alert optional"}
+            </Badge>
+          </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-sm font-medium text-white">
-              <Send className="h-4 w-4 text-sentra-cyan" />
-              Alert delivery
+              <Workflow className="h-4 w-4 text-sentra-cyan" />
+              CRM & automation webhook
             </div>
             <Input
-              value={webhookUrl}
-              onChange={(event) => setWebhookUrl(event.target.value)}
-              placeholder="Optional Slack, Discord, or automation webhook URL"
+              value={automationWebhookUrl}
+              onChange={(event) => setAutomationWebhookUrl(event.target.value)}
+              placeholder="HubSpot, Zapier, Make, TriggerWare, or automation URL"
               className="mt-3 h-10"
-              aria-label="Alert webhook URL"
+              aria-label="CRM and automation webhook URL"
             />
+            <p className="mt-2 text-xs leading-5 text-white/42">
+              Used for CRM export, workflow triggers, and automatic delivery when a monitor matches.
+            </p>
           </div>
-          <Button
-            variant={demoAutopilot ? "neon" : "ghost"}
-            onClick={() => setDemoAutopilot((current) => !current)}
-            disabled={!activeMonitorCount}
-          >
-            <TimerReset className="h-4 w-4" />
-            {demoAutopilot ? "Autopilot on" : "Autopilot"}
-          </Button>
-          <Badge variant={webhookSending ? "cyan" : webhookUrl.trim() ? "success" : "default"}>
-            {webhookSending ? "Sending" : webhookUrl.trim() ? "Webhook armed" : "Webhook optional"}
-          </Badge>
         </div>
 
         <div className="mt-5">
@@ -1089,19 +1127,13 @@ export function MonitorCenter() {
                           ))}
                         </div>
                       </div>
-                      <div className="grid gap-4 border-t border-white/10 pt-5 md:grid-cols-2">
-                        <div>
-                          <p className="mb-2 text-xs uppercase tracking-[0.2em] text-white/35">CRM export</p>
-                          <CrmExportButton report={selectedReport.report} />
-                        </div>
-                        <div>
-                          <p className="mb-2 text-xs uppercase tracking-[0.2em] text-white/35">TriggerWare automation</p>
-                          <TriggerWareAutomationButton
-                            report={selectedReport.report}
-                            requirement={selectedReport.monitor.requirement}
-                            monitorId={selectedReport.monitor.id}
-                          />
-                        </div>
+                      <div className="border-t border-white/10 pt-5">
+                        <p className="mb-3 text-xs uppercase tracking-[0.2em] text-white/35">CRM & automation</p>
+                        <AutomationWebhookPanel
+                          report={selectedReport.report}
+                          requirement={selectedReport.monitor.requirement}
+                          monitorId={selectedReport.monitor.id}
+                        />
                       </div>
                     </div>
                   ) : aiLoading ? (
@@ -1127,7 +1159,8 @@ export function MonitorCenter() {
           </div>
         </div>
       )}
-    </section>
+    </div>
+      </WorkspaceSection>
     </>
   );
 }

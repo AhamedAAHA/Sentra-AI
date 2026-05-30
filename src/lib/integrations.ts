@@ -94,7 +94,6 @@ export function getIntegrationStatus() {
           }
         : null,
     },
-    elevenlabs: isSpeechmaticsConfigured(),
     aimlVoice: isSpeechmaticsConfigured(),
     speechmaticsVoice: isSpeechmaticsConfigured(),
     speechmaticsStt: isSpeechmaticsSttConfigured(),
